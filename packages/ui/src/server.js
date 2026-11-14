@@ -145,7 +145,30 @@ export class CompanionServer {
         try {
           const msg = JSON.parse(raw);
           if (msg.type === 'goal') {
-            // Create durable task record
+            const rawText = (msg.text || '').trim();
+            const isCasualGreeting = /^(hello|hi|hey|good\s+(morning|afternoon|evening)|howdy|sup|how\s+are\s+you|who\s+are\s+you|what\s+can\s+you\s+do|thanks|thank\s+you)[\s!.]*$/i.test(rawText);
+
+            if (isCasualGreeting) {
+              let responseText = "Hello! I'm Muse, your personal AI companion. How can I help you today?";
+              if (/who\s+are\s+you/i.test(rawText)) {
+                responseText = "I'm **Muse**, your autonomous personal companion. I can research the web, track prices and flight deals, automate browser tasks, and manage ongoing projects for you.";
+              } else if (/what\s+can\s+you\s+do/i.test(rawText)) {
+                responseText = "Here is what I can do for you:\n\n- 🔍 **Autonomous Web Research:** Compare products, find deals, and read websites.\n- ✈️ **Travel & Flight Tracking:** Find least-cost routes and monitor fares.\n- 🤖 **Browser Automation:** Navigate, extract data, and inspect pages live in our work surface.\n- 🛡️ **Sentinel Security:** Keep your personal actions safe with human authorization for payments and outbound communications.\n- 🎯 **Goals & Memories:** Remember your preferences across conversations.\n\nWhat would you like to explore today?";
+              } else if (/how\s+are\s+you/i.test(rawText)) {
+                responseText = "I'm doing great and ready to help! What are we working on today?";
+              } else if (/thank/i.test(rawText)) {
+                responseText = "You're very welcome! Let me know if you need anything else.";
+              }
+
+              this.broadcast({
+                type: 'complete',
+                taskId: null,
+                result: responseText
+              });
+              return;
+            }
+
+            // Create durable task record for genuine multi-step goals
             const taskRecord = this.memoryStore.createTask({ title: msg.text });
             const goalRecord = this.memoryStore.saveGoal({ title: msg.text, status: 'active', progress: 15 });
             
@@ -157,12 +180,13 @@ export class CompanionServer {
 
             const result = await this.museAgent.runGoal(msg.text, { taskId: taskRecord.id });
             
-            this.memoryStore.updateGoal(goalRecord.id, { status: 'completed', progress: 100 });
-            this.broadcast({
-              type: 'complete',
-              taskId: taskRecord.id,
-              result: result.content
+            this.memoryStore.updateGoal(goalRecord.id, { 
+              status: result.success ? 'completed' : 'failed', 
+              progress: 100 
             });
+
+            // Note: museAgent already notifies 'complete' via onStepUpdate.
+            // Do not broadcast duplicate complete here to avoid duplicate chat bubbles.
             this.broadcast({ type: 'sync_state', state: this.getDashboardState() });
 
           } else if (msg.type === 'resume_task') {
@@ -181,11 +205,7 @@ export class CompanionServer {
                 startStep: task.step
               });
 
-              this.broadcast({
-                type: 'complete',
-                taskId: task.id,
-                result: result.content
-              });
+              // museAgent already notifies 'complete' via onStepUpdate
               this.broadcast({ type: 'sync_state', state: this.getDashboardState() });
             }
 

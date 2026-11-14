@@ -722,10 +722,7 @@ chatForm?.addEventListener('submit', (e) => {
   userInput.style.height = 'auto';
 
   setAvatarState('thinking');
-  agentStatus.textContent = 'Working on your goal...';
-
-  const taskId = `task_${Date.now()}`;
-  createInlineTaskCard(taskId, text, 'Planning', 20, 'Analyzing goal and formulating plan...');
+  agentStatus.textContent = 'Muse is thinking...';
 
   socket?.send(JSON.stringify({
     type: 'goal',
@@ -784,15 +781,13 @@ function handleServerEvent(data) {
       if (data.tasks && data.tasks.length > 0) {
         state.tasks = data.tasks;
         renderWelcomeResume();
-        const first = data.tasks[0];
-        appendMessage('assistant', `🔄 Restored in-flight task: "${first.title}". Click Resume to continue.`);
       }
       break;
 
     case 'goal_created':
       if (data.task) {
         currentActiveTaskId = data.task.id;
-        updateInlineTaskCard(data.task.id, 'Running', 30, 'Plan formulated. Executing first step...');
+        createInlineTaskCard(data.task.id, data.task.title, 'Planning', 20, 'Analyzing goal and formulating plan...');
       }
       break;
 
@@ -848,7 +843,7 @@ function handleServerEvent(data) {
 
     case 'complete':
       setAvatarState('idle');
-      agentStatus.textContent = 'Goal accomplished';
+      agentStatus.textContent = 'Ready';
       if (currentActiveTaskId) {
         updateInlineTaskCard(currentActiveTaskId, 'Done', 100, 'Goal completed successfully.');
       }
@@ -858,8 +853,15 @@ function handleServerEvent(data) {
       if (btnTakeControl) {
         btnTakeControl.style.display = 'none';
       }
-      appendMessage('assistant', data.result || 'Task completed.');
-      if (data.result) speakText(data.result);
+      const resultContent = data.result || 'Task completed.';
+      // Deduplicate: ensure identical response isn't rendered back-to-back
+      const lastBubble = streamList.lastElementChild?.querySelector('.bubble-text');
+      const lastMsgText = lastBubble ? lastBubble.innerText.trim() : '';
+      if (!lastMsgText || lastMsgText !== resultContent.trim()) {
+        appendMessage('assistant', resultContent);
+        if (data.result) speakText(data.result);
+      }
+      currentActiveTaskId = null;
       break;
 
     case 'error':

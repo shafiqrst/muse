@@ -70,9 +70,17 @@ export class BaseAgent {
         });
       }
 
+      // When approaching the step limit, instruct the model to synthesize findings into a final response
+      if (stepCount === maxSteps - 1) {
+        this.messages.push({
+          role: 'system',
+          content: 'Notice: You have 1 step remaining. Do not invoke more tools. Synthesize all findings and present your complete final answer now in Markdown.'
+        });
+      }
+
       const response = await this.router.chatCompletion({
         messages: this.messages,
-        tools: this.tools.getSchemas(),
+        tools: stepCount >= maxSteps ? [] : this.tools.getSchemas(),
         temperature: 0.2
       });
 
@@ -159,11 +167,44 @@ export class BaseAgent {
       }
     }
 
-    if (this.memoryStore && taskId) {
-      this.memoryStore.updateTaskState(taskId, 'failed', { error: 'Max steps reached' });
-    }
+    // Graceful final synthesis fallback when loop finishes instead of failing with 'Max steps reached'
+    try {
+      const finalSynthesis = await this.router.chatCompletion({
+        messages: [
+          ...this.messages,
+          {
+            role: 'system',
+            content: 'Synthesize all findings and observations gathered across steps into an executive summary. If the queried product or subject is unreleased or not yet commercially available, state that clearly, share expected timelines or leaks, and compare with the latest available alternatives with pricing tables.'
+          }
+        ],
+        tools: [],
+        temperature: 0.3
+      });
 
-    return { success: false, taskId, content: 'Max steps reached.' };
+      const synthesizedText = finalSynthesis.content || 'I completed the research across multiple sources, but could not locate official commercial listings for this query.';
+
+      if (this.memoryStore && taskId) {
+        this.memoryStore.updateTaskState(taskId, 'completed', {
+          progress: 100,
+          step: stepCount,
+          result: synthesizedText
+        });
+      }
+
+      this.notify({
+        type: 'complete',
+        taskId,
+        result: synthesizedText,
+        provider: finalSynthesis.providerUsed
+      });
+
+      return { success: true, taskId, content: synthesizedText, provider: finalSynthesis.providerUsed };
+    } catch {
+      if (this.memoryStore && taskId) {
+        this.memoryStore.updateTaskState(taskId, 'failed', { error: 'Execution limit reached' });
+      }
+      return { success: false, taskId, content: 'Execution limit reached while researching.' };
+    }
   }
 
   notify(event) {

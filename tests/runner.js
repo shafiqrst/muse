@@ -131,6 +131,25 @@ async function runTests() {
     failed++;
   }
 
+  // Test 6: Sentinel Granular Browsing vs Payment Interception
+  try {
+    const sentinel = new SentinelGuard({ workspaceRoot: process.cwd() });
+    const searchCheck = sentinel.classifyAction('browser_search', { query: 'iPhone 18 Pro Max price offer cheapest' });
+    const navCheck = sentinel.classifyAction('browser_navigate', { url: 'https://apple.com/shop/buy-iphone/16-pro' });
+    const clickLinkCheck = sentinel.classifyAction('browser_click', { target: 'The new iPhone - Apple Official Site - Buy now' });
+    const checkoutCheck = sentinel.classifyAction('browser_click', { target: 'Place Order' });
+
+    if (!searchCheck.isSensitive && !navCheck.isSensitive && !clickLinkCheck.isSensitive && checkoutCheck.isSensitive && checkoutCheck.riskLevel === 'CRITICAL') {
+      console.log('✅ Test 6: Sentinel correctly allows read-only product search/navigation while intercepting checkout/payment');
+      passed++;
+    } else {
+      throw new Error('Sentinel browsing vs payment classification mismatch');
+    }
+  } catch (err) {
+    console.error('❌ Test 6 Failed:', err.message);
+    failed++;
+  }
+
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);
   console.log(`========================================\n`);
