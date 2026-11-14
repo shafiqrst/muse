@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Muse • Personal AI Companion</title>
+  <title>Muse • Personal AI Avatar Companion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,7 +11,7 @@
 </head>
 <body>
   <div class="companion-shell">
-    <!-- Top Bar with Mode Switcher & Model Pill -->
+    <!-- Top Header with Mode & Voice Controls -->
     <header class="companion-header">
       <div class="mode-segmented-pill">
         <button class="mode-btn active" data-mode="muse" id="btn-mode-muse">
@@ -21,19 +21,83 @@
           <span class="icon">💻</span> Coder
         </button>
       </div>
-      <div class="model-badge" id="active-model-badge">
-        <span class="pulse-dot"></span>
-        <span id="model-name">Gemini Flash</span>
+
+      <div class="header-right-actions">
+        <!-- Voice Speak Toggle -->
+        <button class="icon-toggle-btn active" id="btn-voice-toggle" title="Toggle Voice Response">
+          <span class="voice-wave">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
+
+        <!-- Active Model Pill -->
+        <div class="model-badge" id="active-model-badge">
+          <span class="pulse-dot"></span>
+          <span id="model-name">Gemini Flash</span>
+        </div>
       </div>
     </header>
 
-    <!-- Meta Muse Fluid Ambient Orb -->
-    <div class="orb-container" id="orb-container">
-      <div class="ambient-orb" id="ambient-orb">
-        <div class="orb-glow"></div>
-        <div class="orb-core"></div>
+    <!-- Meta Muse Realtime Interactive Avatar Stage -->
+    <div class="avatar-stage" id="avatar-stage">
+      <div class="avatar-halo" id="avatar-halo"></div>
+      
+      <!-- Interactive Vector Avatar Face -->
+      <div class="avatar-viewport" id="avatar-viewport">
+        <svg viewBox="0 0 160 160" class="avatar-svg" id="avatar-svg">
+          <defs>
+            <linearGradient id="skinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="50%" stop-color="#818cf8"/>
+              <stop offset="100%" stop-color="#c084fc"/>
+            </linearGradient>
+            <linearGradient id="eyeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ffffff"/>
+              <stop offset="100%" stop-color="#cbd5e1"/>
+            </linearGradient>
+            <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="4" result="blur"/>
+              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+            </filter>
+          </defs>
+
+          <!-- Head Shape -->
+          <circle cx="80" cy="80" r="66" fill="url(#skinGrad)" filter="url(#glowFilter)" class="avatar-head"/>
+          <ellipse cx="80" cy="80" rx="60" ry="60" fill="#0f172a" opacity="0.92"/>
+
+          <!-- Eyebrows -->
+          <path id="brow-left" d="M 44 54 Q 56 49 68 53" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+          <path id="brow-right" d="M 92 53 Q 104 49 116 54" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+
+          <!-- Eyes -->
+          <g id="eye-group-left" class="eye-group">
+            <ellipse cx="56" cy="68" rx="12" ry="14" fill="url(#eyeGrad)"/>
+            <circle id="pupil-left" cx="56" cy="68" r="6.5" fill="#0284c7"/>
+            <circle id="shine-left" cx="54" cy="64" r="2.5" fill="#ffffff"/>
+            <!-- Eyelid for Blinking -->
+            <path id="eyelid-left" d="M 42 54 Q 56 54 70 54 L 70 54 Q 56 54 42 54 Z" fill="#0f172a"/>
+          </g>
+
+          <g id="eye-group-right" class="eye-group">
+            <ellipse cx="104" cy="68" rx="12" ry="14" fill="url(#eyeGrad)"/>
+            <circle id="pupil-right" cx="104" cy="68" r="6.5" fill="#0284c7"/>
+            <circle id="shine-right" cx="102" cy="64" r="2.5" fill="#ffffff"/>
+            <!-- Eyelid for Blinking -->
+            <path id="eyelid-right" d="M 90 54 Q 104 54 118 54 L 118 54 Q 104 54 90 54 Z" fill="#0f172a"/>
+          </g>
+
+          <!-- Animated Morphing Mouth -->
+          <path id="avatar-mouth" d="M 64 104 Q 80 114 96 104" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+        </svg>
+
+        <!-- Dynamic Expression Floating Badge -->
+        <div class="avatar-badge" id="avatar-badge">
+          <span class="badge-icon" id="badge-icon">✨</span>
+          <span class="badge-text" id="badge-text">Muse Active</span>
+        </div>
       </div>
-      <div class="agent-status-label" id="agent-status">Ready for your goals</div>
+
+      <div class="agent-status-label" id="agent-status">Ready to assist you</div>
     </div>
 
     <!-- Live Browser Sheet (Slides down when Muse navigates) -->
@@ -83,9 +147,17 @@
       <div class="conversation-stream" id="stream"></div>
     </main>
 
-    <!-- Bottom Input & Voice Control -->
+    <!-- Bottom Input with Speech-to-Text Mic -->
     <footer class="companion-footer">
       <form class="input-form" id="chat-form">
+        <!-- Voice Input Mic Button -->
+        <button type="button" class="mic-btn" id="btn-mic" title="Speak to Muse">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+        </button>
+
         <input 
           type="text" 
           id="user-input" 
@@ -93,7 +165,8 @@
           placeholder="Ask Muse or give a goal..." 
           autocomplete="off"
         />
-        <button type="submit" class="send-btn" id="send-btn">
+
+        <button type="submit" class="send-btn" id="send-btn" title="Send Goal">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="19" x2="12" y2="5"></line>
             <polyline points="5 12 12 5 19 12"></polyline>
