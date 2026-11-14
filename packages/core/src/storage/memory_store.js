@@ -13,6 +13,8 @@ export class MemoryStore {
     this.goalsFile = path.join(this.dataDir, 'goals.json');
     this.tasksFile = path.join(this.dataDir, 'tasks.json');
     this.actionsFile = path.join(this.dataDir, 'executed_actions.json');
+    this.conversationsFile = path.join(this.dataDir, 'conversations.json');
+    this.personaFile = path.join(this.dataDir, 'persona.json');
     this.init();
   }
 
@@ -40,6 +42,28 @@ export class MemoryStore {
     }
     if (!fs.existsSync(this.actionsFile)) {
       fs.writeFileSync(this.actionsFile, JSON.stringify({}, null, 2), 'utf8');
+    }
+    if (!fs.existsSync(this.conversationsFile)) {
+      const defaultConversations = [
+        {
+          id: 'conv_main',
+          title: 'Main Muse Conversation',
+          type: 'main',
+          messages: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+      fs.writeFileSync(this.conversationsFile, JSON.stringify(defaultConversations, null, 2), 'utf8');
+    }
+    if (!fs.existsSync(this.personaFile)) {
+      const defaultPersona = {
+        name: 'Muse',
+        tone: 'friendly',
+        voice: 'natural',
+        proactivity: 'high'
+      };
+      fs.writeFileSync(this.personaFile, JSON.stringify(defaultPersona, null, 2), 'utf8');
     }
   }
 
@@ -215,6 +239,76 @@ export class MemoryStore {
       return Boolean(records[idempotencyKey]);
     } catch {
       return false;
+    }
+  }
+
+  // --- Conversations & Project Threads ---
+  getConversations() {
+    try {
+      return JSON.parse(fs.readFileSync(this.conversationsFile, 'utf8'));
+    } catch {
+      return [];
+    }
+  }
+
+  getConversation(id) {
+    const list = this.getConversations();
+    return list.find(c => c.id === id) || null;
+  }
+
+  createConversation({ title, type = 'project' }) {
+    const list = this.getConversations();
+    const newConv = {
+      id: `conv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      title: title || 'New Conversation',
+      type, // 'main' | 'project' | 'research'
+      messages: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    list.unshift(newConv);
+    fs.writeFileSync(this.conversationsFile, JSON.stringify(list, null, 2), 'utf8');
+    return newConv;
+  }
+
+  deleteConversation(id) {
+    let list = this.getConversations();
+    // Do not allow deleting main conversation
+    if (id === 'conv_main') return false;
+    list = list.filter(c => c.id !== id);
+    fs.writeFileSync(this.conversationsFile, JSON.stringify(list, null, 2), 'utf8');
+    return true;
+  }
+
+  saveConversationMessages(id, messages = []) {
+    const list = this.getConversations();
+    const idx = list.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      list[idx].messages = messages;
+      list[idx].updatedAt = new Date().toISOString();
+      fs.writeFileSync(this.conversationsFile, JSON.stringify(list, null, 2), 'utf8');
+      return list[idx];
+    }
+    return null;
+  }
+
+  // --- Personal Avatar & Identity ---
+  getPersona() {
+    try {
+      return JSON.parse(fs.readFileSync(this.personaFile, 'utf8'));
+    } catch {
+      return { name: 'Muse', tone: 'friendly', voice: 'natural', proactivity: 'high' };
+    }
+  }
+
+  updatePersona(updates = {}) {
+    try {
+      const current = this.getPersona();
+      const updated = { ...current, ...updates, updatedAt: new Date().toISOString() };
+      fs.writeFileSync(this.personaFile, JSON.stringify(updated, null, 2), 'utf8');
+      return updated;
+    } catch {
+      return null;
     }
   }
 }

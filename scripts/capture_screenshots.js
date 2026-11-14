@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { chromium } from 'playwright-core';
-import { CompanionServer } from './packages/ui/src/server.js';
+import { CompanionServer } from '../packages/ui/src/server.js';
 
 async function capture() {
   const screenshotsDir = path.join(process.cwd(), 'docs', 'screenshots');

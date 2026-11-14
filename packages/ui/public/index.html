@@ -3,91 +3,105 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Muse • Autonomous Personal AI Companion</title>
+  <title>Muse • Personal AI Companion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="vendor/highlight-github-dark.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="chatbox-shell" id="app-shell">
+  <div class="companion-shell" id="app-shell">
     
-    <!-- Refined Companion Header -->
-    <header class="companion-header">
-      <div class="header-left">
-        <!-- Subtle Living Mini Avatar (34px) -->
-        <div class="avatar-head-wrapper" id="avatar-head-wrapper" title="Muse Persona • Natural eye gaze & speech synchronization">
-          <div class="avatar-halo" id="avatar-halo"></div>
-          <svg viewBox="0 0 100 100" class="mini-avatar-svg" id="avatar-svg">
-            <defs>
-              <linearGradient id="skinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#38bdf8"/>
-                <stop offset="50%" stop-color="#818cf8"/>
-                <stop offset="100%" stop-color="#c084fc"/>
-              </linearGradient>
-            </defs>
-            <circle cx="50" cy="50" r="42" fill="url(#skinGrad)"/>
-            <circle cx="50" cy="50" r="37" fill="#0f172a"/>
-            
-            <!-- Eyes with mouse-tracking pupils -->
-            <ellipse cx="36" cy="44" rx="7" ry="8" fill="#ffffff"/>
-            <circle id="pupil-left" cx="36" cy="44" r="4" fill="#0284c7"/>
-            <path id="eyelid-left" d="M 28 36 Q 36 36 44 36 L 44 36 Q 36 36 28 36 Z" fill="#0f172a"/>
-
-            <ellipse cx="64" cy="44" rx="7" ry="8" fill="#ffffff"/>
-            <circle id="pupil-right" cx="64" cy="44" r="4" fill="#0284c7"/>
-            <path id="eyelid-right" d="M 56 36 Q 64 36 72 36 L 72 36 Q 64 36 56 36 Z" fill="#0f172a"/>
-
-            <!-- Natural Lip-Sync Mouth -->
-            <path id="avatar-mouth" d="M 40 68 Q 50 75 60 68" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-          </svg>
-          <span class="avatar-online-dot"></span>
-        </div>
-
-        <div class="header-titles">
-          <div class="title-row">
-            <span class="app-brand">Muse</span>
-            <span class="agent-state-pill" id="agent-status-pill">Ready</span>
-          </div>
-          <div class="agent-activity-subtext" id="agent-status">Your personal companion</div>
-        </div>
-      </div>
-
-      <!-- Controls & Actions -->
-      <div class="header-right">
-        <!-- Voice Toggle -->
-        <button class="header-icon-btn active" id="btn-voice-toggle" title="Toggle Voice Response (Text-to-Speech)">
-          <span class="voice-wave">
-            <span></span><span></span><span></span>
-          </span>
-        </button>
-
-        <!-- Model Status Pill -->
-        <div class="model-pill" id="active-model-badge" title="Active Reasoning Model: Google Gemini 2.0 Flash">
-          <span class="pulse-dot"></span>
-          <span id="model-name">Gemini Flash</span>
-        </div>
-
-        <!-- 1-Click Expand / Collapse Workspace Toggle -->
-        <button class="header-icon-btn" id="btn-expand-workspace" title="Toggle Work Surface Mode (Split / Focused)">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-          </svg>
-        </button>
-
-        <!-- Drawer Menu Button -->
-        <button class="header-icon-btn" id="btn-toggle-drawer" title="Open Navigation Menu">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+    <!-- Top Companion Bar -->
+    <header class="companion-topbar">
+      <div class="topbar-left">
+        <!-- Navigation & Conversations Toggle -->
+        <button class="topbar-icon-btn" id="btn-toggle-drawer" title="Conversations & Projects (Menu)">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="6" x2="21" y2="6"></line>
             <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
         </button>
+
+        <!-- Living Avatar & Persona Identity Trigger -->
+        <div class="avatar-interactive-chip" id="avatar-identity-trigger" title="Muse Persona • Click to personalize tone & style">
+          <div class="avatar-head-wrapper" id="avatar-head-wrapper">
+            <div class="avatar-halo" id="avatar-halo"></div>
+            <svg viewBox="0 0 100 100" class="mini-avatar-svg" id="avatar-svg">
+              <defs>
+                <linearGradient id="skinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#38bdf8"/>
+                  <stop offset="50%" stop-color="#818cf8"/>
+                  <stop offset="100%" stop-color="#a855f7"/>
+                </linearGradient>
+              </defs>
+              <circle cx="50" cy="50" r="42" fill="url(#skinGrad)"/>
+              <circle cx="50" cy="50" r="37" fill="#0f172a"/>
+              
+              <!-- Gaze Tracking Eyes -->
+              <ellipse cx="36" cy="44" rx="7" ry="8" fill="#ffffff"/>
+              <circle id="pupil-left" cx="36" cy="44" r="4" fill="#0284c7"/>
+              <path id="eyelid-left" d="M 28 36 Q 36 36 44 36 L 44 36 Q 36 36 28 36 Z" fill="#0f172a"/>
+
+              <ellipse cx="64" cy="44" rx="7" ry="8" fill="#ffffff"/>
+              <circle id="pupil-right" cx="64" cy="44" r="4" fill="#0284c7"/>
+              <path id="eyelid-right" d="M 56 36 Q 64 36 72 36 L 72 36 Q 64 36 56 36 Z" fill="#0f172a"/>
+
+              <!-- Natural Lip-Sync Mouth -->
+              <path id="avatar-mouth" d="M 40 68 Q 50 75 60 68" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+            </svg>
+            <span class="avatar-online-dot"></span>
+          </div>
+
+          <div class="header-titles">
+            <div class="title-row">
+              <span class="app-brand" id="persona-name-display">Muse</span>
+              <span class="agent-state-pill" id="agent-status-pill">Ready</span>
+            </div>
+            <div class="agent-activity-subtext" id="agent-status">Your personal companion</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Active Task Indicator (Appears when background task is running) -->
+      <div class="topbar-center">
+        <div class="active-task-pill" id="header-active-task-pill" style="display: none;" title="Click to view Contextual Work Surface">
+          <span class="pulse-dot purple"></span>
+          <span class="task-pill-text" id="header-task-title">Working on goal...</span>
+          <span class="task-pill-badge">View Surface ↗</span>
+        </div>
+      </div>
+
+      <!-- Topbar Right Controls -->
+      <div class="topbar-right">
+        <!-- New Conversation Quick Action -->
+        <button class="topbar-icon-btn" id="btn-new-conversation" title="Start New Conversation">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+
+        <!-- Voice Toggle -->
+        <button class="topbar-icon-btn active" id="btn-voice-toggle" title="Toggle Voice Response (Text-to-Speech)">
+          <span class="voice-wave">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
+
+        <!-- Contextual Work Surface Toggle Button -->
+        <button class="topbar-icon-btn" id="btn-toggle-workspace" title="Toggle Contextual Work Surface" style="display: none;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="15" y1="3" x2="15" y2="21"></line>
+          </svg>
+        </button>
       </div>
     </header>
 
-    <!-- Slide-Out Secondary Navigation Drawer -->
+    <!-- Slide-Out Secondary Navigation & Projects Drawer -->
     <div class="drawer-overlay" id="drawer-overlay"></div>
     <aside class="side-drawer" id="side-drawer">
       <div class="drawer-header">
@@ -97,19 +111,19 @@
         </div>
         <button class="drawer-close" id="btn-close-drawer">✕</button>
       </div>
+
+      <div class="drawer-section">
+        <div class="drawer-section-title">
+          <span>Conversations & Projects</span>
+          <button class="btn-drawer-add" id="btn-drawer-new-conv" title="New Project Thread">+</button>
+        </div>
+        <div class="conversations-list" id="conversations-list">
+          <!-- Dynamically populated conversations -->
+        </div>
+      </div>
+
       <nav class="drawer-nav">
-        <button class="drawer-item" data-view="chat">
-          <span class="drawer-icon">💬</span>
-          <span class="drawer-label">Chat & Conversation</span>
-        </button>
-        <button class="drawer-item active" data-view="workspace-home">
-          <span class="drawer-icon">🏠</span>
-          <span class="drawer-label">Workspace Overview</span>
-        </button>
-        <button class="drawer-item" data-view="browser">
-          <span class="drawer-icon">🌐</span>
-          <span class="drawer-label">Browser Work Surface</span>
-        </button>
+        <div class="drawer-section-title">Workspace & Controls</div>
         <button class="drawer-item" data-view="goals">
           <span class="drawer-icon">🎯</span>
           <span class="drawer-label">Tasks & Goals</span>
@@ -123,398 +137,170 @@
           <span class="drawer-label">Sentinel Approvals</span>
           <span class="tab-badge" id="approval-badge" style="display: none;">0</span>
         </button>
-        <button class="drawer-item" data-view="connections">
-          <span class="drawer-icon">🔌</span>
-          <span class="drawer-label">Connected Apps & Models</span>
-        </button>
         <button class="drawer-item" data-view="memory">
           <span class="drawer-icon">🧠</span>
           <span class="drawer-label">Personal Memory</span>
         </button>
-        <button class="drawer-item" data-view="settings">
-          <span class="drawer-icon">⚙️</span>
-          <span class="drawer-label">Settings & Controls</span>
+        <button class="drawer-item" data-view="persona">
+          <span class="drawer-icon">✨</span>
+          <span class="drawer-label">Avatar & Personality</span>
+        </button>
+        <button class="drawer-item" data-view="connections">
+          <span class="drawer-icon">🔌</span>
+          <span class="drawer-label">Connected Models & Apps</span>
         </button>
       </nav>
+
       <div class="drawer-footer">
         <div class="privacy-note">
-          🔒 100% Private Sandbox • Runs entirely on your machine
+          🔒 100% Private Sandbox • Local Memory & Sentinel Protected
         </div>
       </div>
     </aside>
 
-    <!-- Main Body Workspace (Responsive Dual-Pane or Single-Pane) -->
-    <div class="workspace-body">
+    <!-- Main Workspace Layout: Centered Conversation Canvas + Contextual Slide-out Drawer -->
+    <div class="main-body-container">
       
-      <!-- Primary Pane: Conversational Stream -->
-      <section class="conversation-pane" id="conversation-pane">
-        
-        <!-- Live Task Progress Banner (Appears dynamically during execution) -->
-        <div class="active-task-banner" id="active-task-banner" style="display: none;">
-          <div class="task-banner-header">
-            <div class="task-banner-title">
-              <span class="spinner-dot"></span>
-              <span id="banner-task-title">Working on your goal...</span>
-            </div>
-            <span class="task-banner-step" id="banner-task-step">Step 1</span>
-          </div>
-          <div class="task-banner-progress">
-            <div class="task-banner-fill" id="banner-task-fill" style="width: 25%;"></div>
-          </div>
-          <div class="task-banner-subtext" id="banner-task-desc">Perceiving request and planning next action...</div>
-        </div>
-
-        <!-- Inline Live Browser Preview Sheet (Collapsible) -->
-        <div class="browser-preview-sheet" id="browser-sheet" style="display: none;">
-          <div class="sheet-header">
-            <div class="browser-traffic-lights">
-              <span class="tl red"></span>
-              <span class="tl yellow"></span>
-              <span class="tl green"></span>
-            </div>
-            <div class="sheet-url-bar" id="sheet-url">https://...</div>
-            <button class="sheet-close" id="btn-close-sheet">✕</button>
-          </div>
-          <div class="sheet-body">
-            <div class="page-title" id="sheet-title">Opening website...</div>
-            <div class="page-summary" id="sheet-summary">Inspecting in isolated browser sandbox...</div>
-          </div>
-        </div>
-
-        <!-- Inline Human-Readable Sentinel Authorization Card -->
-        <div class="human-sentinel-card" id="sentinel-card" style="display: none;">
-          <div class="sentinel-banner">
-            <span class="sentinel-shield">🛡️</span>
-            <div>
-              <span class="sentinel-tag">SENTINEL GUARD APPROVAL REQUIRED</span>
-              <span class="risk-pill" id="sentinel-risk-pill">HIGH RISK</span>
-            </div>
-          </div>
-          <div class="sentinel-action-title" id="sentinel-action-title">Action Title</div>
-          <p class="sentinel-action-desc" id="sentinel-action-desc">Muse is attempting an external operation that requires your authorization.</p>
-          
-          <div class="sentinel-details-grid" id="sentinel-details-grid">
-            <!-- Dynamically populated human readable rows -->
-          </div>
-
-          <div class="sentinel-actions">
-            <button class="btn-reject" id="btn-sentinel-reject">✕ Reject Action</button>
-            <button class="btn-approve" id="btn-sentinel-approve">✓ Authorize Action</button>
-          </div>
-        </div>
-
-        <!-- Scrollable Messages Timeline -->
-        <main class="chatbox-messages" id="timeline">
-          
-          <!-- Contextual Home / Welcome Card -->
-          <div class="chat-welcome-card" id="welcome-card">
-            <div class="welcome-header-row">
-              <div class="welcome-icon">✨</div>
-              <div>
-                <h3 id="welcome-greeting">Good morning</h3>
-                <p class="welcome-subtitle">Your personal companion is ready to take action on your behalf.</p>
+      <!-- Primary Spacious Conversation Canvas -->
+      <main class="conversation-canvas" id="conversation-canvas">
+        <div class="conversation-scroll-wrap" id="timeline">
+          <div class="conversation-column">
+            
+            <!-- Contextual Welcome Screen (Clean, Warm, Meta Muse Style) -->
+            <div class="conversational-welcome" id="welcome-card">
+              <div class="welcome-hero-box">
+                <div class="welcome-badge">PERSONAL COMPANION</div>
+                <h1 class="welcome-heading"><span id="welcome-greeting">Good morning</span> ✨</h1>
+                <p class="welcome-subheading">What would you like us to accomplish today?</p>
+                <p class="welcome-description">I can research topics, plan and compare options, track goals, or automate multi-step web tasks on your behalf.</p>
               </div>
-            </div>
 
-            <!-- "Pick up where you left off" Section (Restored Tasks & Goals) -->
-            <div class="resume-section" id="welcome-resume-section" style="display: none;">
-              <div class="section-label">⚡ Pick up where you left off</div>
-              <div class="resume-cards-list" id="welcome-resume-list"></div>
-            </div>
+              <!-- "Pick Up Where You Left Off" Section (Durable Restored Tasks) -->
+              <div class="welcome-resume-box" id="welcome-resume-section" style="display: none;">
+                <div class="resume-header">
+                  <span class="resume-icon">⚡</span>
+                  <span class="resume-title">Pick up where you left off</span>
+                </div>
+                <div class="resume-cards-list" id="welcome-resume-list"></div>
+              </div>
 
-            <!-- Categorized Starter Actions (Refined Cards) -->
-            <div class="chips-category-group">
-              <div class="section-label">Suggested Actions</div>
-              <div class="chips-grid">
-                <button class="chip" data-prompt="Find the top 3 best flight deals to Tokyo under $600 and compare them">
-                  <div class="chip-icon-box">✈️</div>
-                  <div class="chip-text">
-                    <strong>Research Flights</strong>
-                    <small>Tokyo deals under $600</small>
+              <!-- Suggested Starter Action Cards (2x2 Grid) -->
+              <div class="starter-prompts-grid">
+                <button class="starter-card" data-prompt="Find the top 3 best flight deals to Tokyo under $600 and compare them">
+                  <div class="starter-icon-box">✈️</div>
+                  <div class="starter-body">
+                    <strong>Research Tokyo Flights</strong>
+                    <span>Compare airline deals under $600</span>
                   </div>
                 </button>
-                <button class="chip" data-prompt="Compare iPad Air and Samsung Galaxy Tab S9 specifications and prices across major retailers">
-                  <div class="chip-icon-box">🛒</div>
-                  <div class="chip-text">
-                    <strong>Compare Tablets</strong>
-                    <small>iPad Air vs Tab S9 specs</small>
+                <button class="starter-card" data-prompt="Compare iPad Air and Samsung Galaxy Tab S9 specifications and prices across major retailers">
+                  <div class="starter-icon-box">🛒</div>
+                  <div class="starter-body">
+                    <strong>Compare Tablet Specs</strong>
+                    <span>iPad Air vs Galaxy Tab S9 pricing</span>
                   </div>
                 </button>
-                <button class="chip" data-prompt="Browse news.ycombinator.com and prepare an executive summary of the top 3 AI discussions">
-                  <div class="chip-icon-box">📰</div>
-                  <div class="chip-text">
-                    <strong>AI Headlines</strong>
-                    <small>Top Hacker News stories</small>
+                <button class="starter-card" data-prompt="Browse news.ycombinator.com and prepare an executive summary of the top 3 AI discussions">
+                  <div class="starter-icon-box">📰</div>
+                  <div class="starter-body">
+                    <strong>Summarize AI Headlines</strong>
+                    <span>Top discussions from Hacker News</span>
                   </div>
                 </button>
-                <button class="chip" data-prompt="Help me review my goals and plan my key priorities for today">
-                  <div class="chip-icon-box">📋</div>
-                  <div class="chip-text">
-                    <strong>Plan Priorities</strong>
-                    <small>Organize goals & milestones</small>
+                <button class="starter-card" data-prompt="Help me review my goals and plan my key priorities for today">
+                  <div class="starter-icon-box">📋</div>
+                  <div class="starter-body">
+                    <strong>Plan Daily Priorities</strong>
+                    <span>Organize goals, schedule & tasks</span>
                   </div>
                 </button>
               </div>
             </div>
+
+            <!-- Conversation Message Stream -->
+            <div class="conversation-stream" id="stream"></div>
+
           </div>
+        </div>
 
-          <div class="conversation-stream" id="stream"></div>
-        </main>
+        <!-- Pinned Bottom Message Composer -->
+        <footer class="conversation-composer-wrap">
+          <div class="composer-container">
+            <form class="composer-form" id="chat-form">
+              <!-- Voice Dictation Button -->
+              <button type="button" class="composer-btn" id="btn-mic" title="Voice Dictation (Speech-to-Text)">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+              </button>
 
-        <!-- Bottom Input Composer -->
-        <footer class="chatbox-footer">
-          <form class="input-form" id="chat-form">
-            <button type="button" class="mic-btn" id="btn-mic" title="Voice Dictation (Speech-to-Text)">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-              </svg>
-            </button>
-            <input type="text" id="user-input" class="chat-input" placeholder="Tell Muse what you need done..." autocomplete="off"/>
-            <button type="submit" class="send-btn" id="send-btn" title="Send message">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" y1="19" x2="12" y2="5"></line>
-                <polyline points="5 12 12 5 19 12"></polyline>
-              </svg>
-            </button>
-          </form>
+              <!-- Textarea with auto-expand -->
+              <textarea id="user-input" class="composer-input" rows="1" placeholder="Message Muse..." autocomplete="off"></textarea>
+
+              <!-- Send Button -->
+              <button type="submit" class="composer-send-btn" id="send-btn" title="Send message (Enter)">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+              </button>
+            </form>
+            <div class="composer-footer-note">Muse runs background tasks with durable state and Sentinel security.</div>
+          </div>
         </footer>
-      </section>
+      </main>
 
-      <!-- Secondary Work Surface / Inspection Deck (Adaptive Dual-Pane) -->
-      <section class="inspection-pane" id="inspection-pane">
-        
-        <!-- View: Contextual Workspace Home (Default when Idle) -->
-        <div class="sub-view" id="view-workspace-home" style="display: block;">
-          <div class="workspace-content-wrap">
-            
-            <!-- Workspace Hero Header -->
-            <div class="workspace-hero">
-              <div class="workspace-hero-text">
-                <span class="workspace-eyebrow">YOUR WORKSPACE</span>
-                <h2>Everything you and Muse are working on</h2>
-                <p>Autonomous companion ready • Multi-model reasoning & secure sandbox standby</p>
-              </div>
-              <div class="workspace-system-badge">
-                <span class="pulse-dot green"></span>
-                <span>All systems ready</span>
-              </div>
-            </div>
-
-            <!-- Real-Time Metrics Overview Grid -->
-            <div class="metrics-grid">
-              <div class="metric-card" id="metric-tasks-card">
-                <div class="metric-header">
-                  <span class="metric-title">Active Tasks</span>
-                  <span class="metric-icon">⚡</span>
-                </div>
-                <div class="metric-value" id="metric-tasks-count">0</div>
-                <div class="metric-sub" id="metric-tasks-sub">In-flight or queued</div>
-              </div>
-
-              <div class="metric-card" id="metric-goals-card">
-                <div class="metric-header">
-                  <span class="metric-title">Current Goals</span>
-                  <span class="metric-icon">🎯</span>
-                </div>
-                <div class="metric-value" id="metric-goals-count">0</div>
-                <div class="metric-sub" id="metric-goals-sub">Durable checkpointed</div>
-              </div>
-
-              <div class="metric-card" id="metric-security-card">
-                <div class="metric-header">
-                  <span class="metric-title">Sentinel Security</span>
-                  <span class="metric-icon">🛡️</span>
-                </div>
-                <div class="metric-value status-good" id="metric-security-status">Ready</div>
-                <div class="metric-sub">Isolated sandbox profile</div>
-              </div>
-
-              <div class="metric-card" id="metric-model-card">
-                <div class="metric-header">
-                  <span class="metric-title">AI Router Tier</span>
-                  <span class="metric-icon">🧠</span>
-                </div>
-                <div class="metric-value" id="metric-model-name" style="font-size: 15px;">Gemini Flash</div>
-                <div class="metric-sub">Sub-second reasoning</div>
-              </div>
-            </div>
-
-            <!-- "Continue Your Work" Section -->
-            <div class="workspace-section">
-              <div class="section-header-row">
-                <div class="section-title">Continue your work</div>
-                <span class="section-sub">Quick shortcuts to ongoing workflows</span>
-              </div>
-              <div class="continue-work-grid">
-                <div class="continue-card" id="card-action-research">
-                  <div class="continue-icon-box">🌐</div>
-                  <div class="continue-body">
-                    <h4>Research & Browsing</h4>
-                    <p>Automate web searches, extract product specifications, or track prices online.</p>
-                  </div>
-                  <span class="continue-arrow">→</span>
-                </div>
-
-                <div class="continue-card" id="card-action-goals">
-                  <div class="continue-icon-box">📋</div>
-                  <div class="continue-body">
-                    <h4>Personal Productivity</h4>
-                    <p>Review active goals, checkpoint milestones, and inspect background tasks.</p>
-                  </div>
-                  <span class="continue-arrow">→</span>
-                </div>
-
-                <div class="continue-card" id="card-action-activity">
-                  <div class="continue-icon-box">⚡</div>
-                  <div class="continue-body">
-                    <h4>Recent Activity & Audit</h4>
-                    <p>Inspect timestamped execution steps, tool results, and Sentinel security authorizations.</p>
-                  </div>
-                  <span class="continue-arrow">→</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Active / In-Flight Tasks or Designed Empty State -->
-            <div class="workspace-section">
-              <div class="section-header-row">
-                <div class="section-title">In-Flight Tasks & Background Work</div>
-                <span class="section-sub">Checkpointed tasks that resume across sessions</span>
-              </div>
-              <div class="cards-list" id="workspace-tasks-list">
-                <!-- Dynamically populated or displays premium designed empty state -->
-              </div>
-            </div>
-
+      <!-- Contextual Work Surface (Slide-out on demand for Browser/Tasks) -->
+      <aside class="contextual-workspace-drawer" id="contextual-workspace" style="display: none;">
+        <div class="workspace-drawer-header">
+          <div class="workspace-drawer-title-group">
+            <span class="workspace-drawer-eyebrow">CONTEXTUAL WORK SURFACE</span>
+            <h3 id="workspace-drawer-title">🌐 Live Browser Research</h3>
+          </div>
+          <div class="workspace-drawer-actions">
+            <button class="btn-workspace-takeover" id="btn-take-control" title="Take manual control of the browser" style="display: none;">✋ Take Control</button>
+            <button class="btn-workspace-close" id="btn-close-workspace" title="Collapse to side">✕</button>
           </div>
         </div>
 
-        <!-- View: Active Work Surface (Browser & Task Automation) -->
-        <div class="sub-view" id="view-browser" style="display: none;">
-          <div class="workspace-content-wrap">
-            <div class="sub-header header-split">
-              <div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <h3 id="active-work-title">🌐 Active Work Surface</h3>
-                  <span class="status-pill-pulse" id="active-work-status-pill">Working</span>
-                </div>
-                <p id="browser-deck-status">Isolated Agent Sandbox • Standby</p>
-              </div>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <button class="btn-workspace-action" id="btn-pause-task" title="Pause Task Execution" style="display: none;">⏸ Pause</button>
-                <button class="btn-workspace-action" id="btn-take-control" title="Intervene in live browser session" style="display: none;">✋ Take Control</button>
-                <button class="btn-workspace-action" id="btn-back-home" title="Return to Workspace Overview">🏠 Workspace Home</button>
-              </div>
-            </div>
+        <div class="workspace-drawer-body">
+          <!-- Clean URL Bar (Hidden when empty, never displays about:blank) -->
+          <div class="deck-url-bar" id="deck-url-bar" style="display: none;">
+            <span class="pulse-dot green"></span>
+            <span class="deck-url-text" id="deck-browser-url"></span>
+            <span class="deck-sandbox-badge">Isolated Sandbox</span>
+          </div>
 
-            <!-- Live Browser Card (Only shown with clean domain / content) -->
-            <div class="deck-browser-card" id="deck-browser-card">
-              <div class="deck-url-bar" id="deck-url-bar" style="display: none;">
-                <span class="pulse-dot green"></span>
-                <span class="deck-url-text" id="deck-browser-url"></span>
-                <span class="deck-sandbox-badge">Isolated Sandbox</span>
-              </div>
-              <div class="deck-title" id="deck-browser-title">Session Ready</div>
-              <div class="deck-content-preview" id="deck-browser-content">
-                Live DOM extraction, web pages, and extracted tables will appear here in real time.
-              </div>
-            </div>
-
-            <div class="section-header-row" style="margin-top: 14px;">
-              <div class="section-title">⚡ Execution Milestones & Progress</div>
-              <span class="section-sub" id="deck-milestones-count">0 steps executed</span>
-            </div>
-            
-            <div class="timeline-list" id="deck-milestones-list">
-              <div class="empty-state">No execution steps started yet.</div>
+          <!-- Browser Preview Card -->
+          <div class="deck-browser-card" id="deck-browser-card">
+            <div class="deck-title" id="deck-browser-title">Session Active</div>
+            <div class="deck-content-preview" id="deck-browser-content">
+              Live extracted web content, product tables, and research data will appear here.
             </div>
           </div>
-        </div>
 
-        <!-- View: Goals & Tasks -->
-        <div class="sub-view" id="view-goals" style="display: none;">
-          <div class="sub-header">
-            <h3>🎯 Goals & Ongoing Projects</h3>
-            <p>Autonomous goals running in background with durable state.</p>
-          </div>
-          <div class="cards-list" id="goals-list"></div>
-        </div>
-
-        <!-- View: Activity & Audit Trail -->
-        <div class="sub-view" id="view-activity" style="display: none;">
-          <div class="sub-header">
-            <h3>⚡ Real-Time Activity & Audit Log</h3>
-            <p>Chronological execution trail of browser actions and tools.</p>
-          </div>
-          <div class="activity-feed" id="activity-feed"></div>
-        </div>
-
-        <!-- View: Approvals Queue -->
-        <div class="sub-view" id="view-approvals" style="display: none;">
-          <div class="sub-header">
-            <h3>🛡️ Sentinel Approvals Queue</h3>
-            <p>Sensitive actions requiring your human authorization.</p>
-          </div>
-          <div class="cards-list" id="approvals-queue">
-            <div class="empty-state">No pending approvals. Your actions are safe.</div>
+          <!-- Execution Milestones Timeline -->
+          <div class="drawer-section-title">⚡ Real-Time Execution Milestones</div>
+          <div class="timeline-list" id="deck-milestones-list">
+            <div class="empty-state">No execution steps started yet.</div>
           </div>
         </div>
+      </aside>
 
-        <!-- View: Connections -->
-        <div class="sub-view" id="view-connections" style="display: none;">
-          <div class="sub-header">
-            <h3>🔌 Connected Apps & Sandbox</h3>
-            <p>Active multi-model router tiers and browser profile.</p>
-          </div>
-          <div class="cards-list" id="connections-list"></div>
+    </div>
+
+    <!-- Secondary Views Overlay Modal (Goals, Activity, Approvals, Memory, Persona) -->
+    <div class="modal-overlay" id="views-modal-overlay" style="display: none;">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 id="modal-title">Tasks & Goals</h3>
+          <button class="modal-close" id="btn-close-modal">✕</button>
         </div>
-
-        <!-- View: Memory -->
-        <div class="sub-view" id="view-memory" style="display: none;">
-          <div class="sub-header header-split">
-            <div>
-              <h3>🧠 Personal Memory</h3>
-              <p>User preferences and context remembered across sessions.</p>
-            </div>
-            <button class="btn-small-add" id="btn-add-memory">+ Add</button>
-          </div>
-          <div class="cards-list" id="memory-list"></div>
+        <div class="modal-body" id="modal-content">
+          <!-- Dynamically populated sub-view content -->
         </div>
-
-        <!-- View: Settings -->
-        <div class="sub-view" id="view-settings" style="display: none;">
-          <div class="sub-header">
-            <h3>⚙️ Settings & Controls</h3>
-            <p>Reasoning models, voice speed, and Sentinel security strictness.</p>
-          </div>
-          <div class="settings-group">
-            <label>Primary AI Reasoning Model</label>
-            <select class="settings-select" id="setting-model">
-              <option value="gemini">Google Gemini 2.0 Flash (Recommended - Free Tier)</option>
-              <option value="groq">Groq LPUs (Ultra-fast Llama-3.3 / Qwen)</option>
-              <option value="openrouter">OpenRouter Free Models</option>
-              <option value="ollama">Local Ollama (100% Offline)</option>
-            </select>
-          </div>
-          <div class="settings-group">
-            <label>Sentinel Security Guard</label>
-            <select class="settings-select" id="setting-security">
-              <option value="strict">Strict (Approve all emails, payments & writes)</option>
-              <option value="moderate">Moderate (Approve financial only)</option>
-            </select>
-          </div>
-          <div class="settings-group">
-            <label>Sandbox Isolation Status</label>
-            <div class="settings-toggle-row">
-              <span>Isolated Agent Profile (.mose/isolated_agent_profile)</span>
-              <span class="status-tag-active">Active</span>
-            </div>
-          </div>
-        </div>
-
-      </section>
-
+      </div>
     </div>
 
   </div>

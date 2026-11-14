@@ -1,20 +1,30 @@
-// Muse AI Desktop Companion Client - Conversation-First + Expandable Workspace
+// Muse AI - Personal Conversational Companion Client (Meta Muse-Inspired v2.0)
 
 let socket = null;
 let pendingConfirmId = null;
 let voiceEnabled = true;
 let isSpeaking = false;
 let mouthAnimationInterval = null;
-let currentTask = null;
+let userInControl = false;
+let isTaskPaused = false;
+let currentActiveTaskId = null;
+let milestoneCount = 0;
 
 // Application State
 let state = {
   activeModel: 'Gemini Flash',
+  conversations: [
+    { id: 'conv_main', title: 'Main Muse Conversation', type: 'main', messages: [] }
+  ],
+  currentConversationId: 'conv_main',
+  persona: { name: 'Muse', tone: 'friendly', voice: 'natural', proactivity: 'high' },
   memories: [],
   goals: [],
+  tasks: [],
   activity: [],
   connections: []
 };
+
 const pendingApprovals = new Map();
 
 // DOM Elements
@@ -28,47 +38,52 @@ const eyelidRight = document.getElementById('eyelid-right');
 const avatarMouth = document.getElementById('avatar-mouth');
 const agentStatus = document.getElementById('agent-status');
 const agentStatusPill = document.getElementById('agent-status-pill');
-const modelNameEl = document.getElementById('model-name');
+const personaNameDisplay = document.getElementById('persona-name-display');
+const avatarIdentityTrigger = document.getElementById('avatar-identity-trigger');
 const approvalBadge = document.getElementById('approval-badge');
 
-const btnExpandWorkspace = document.getElementById('btn-expand-workspace');
 const btnToggleDrawer = document.getElementById('btn-toggle-drawer');
 const btnCloseDrawer = document.getElementById('btn-close-drawer');
 const sideDrawer = document.getElementById('side-drawer');
 const drawerOverlay = document.getElementById('drawer-overlay');
-const drawerItems = document.querySelectorAll('.drawer-item');
+const conversationsListEl = document.getElementById('conversations-list');
+const btnDrawerNewConv = document.getElementById('btn-drawer-new-conv');
+const btnNewConversation = document.getElementById('btn-new-conversation');
+const btnVoiceToggle = document.getElementById('btn-voice-toggle');
+const btnToggleWorkspace = document.getElementById('btn-toggle-workspace');
+const headerActiveTaskPill = document.getElementById('header-active-task-pill');
+const headerTaskTitle = document.getElementById('header-task-title');
 
-const activeTaskBanner = document.getElementById('active-task-banner');
-const bannerTaskTitle = document.getElementById('banner-task-title');
-const bannerTaskStep = document.getElementById('banner-task-step');
-const bannerTaskFill = document.getElementById('banner-task-fill');
-const bannerTaskDesc = document.getElementById('banner-task-desc');
-
+// Conversation Canvas & Composer
 const timeline = document.getElementById('timeline');
 const streamList = document.getElementById('stream');
 const welcomeCard = document.getElementById('welcome-card');
-const quickChips = document.getElementById('quick-chips');
+const welcomeGreeting = document.getElementById('welcome-greeting');
+const welcomeResumeSection = document.getElementById('welcome-resume-section');
+const welcomeResumeList = document.getElementById('welcome-resume-list');
 const chatForm = document.getElementById('chat-form');
 const userInput = document.getElementById('user-input');
 const btnMic = document.getElementById('btn-mic');
-const btnVoiceToggle = document.getElementById('btn-voice-toggle');
 
-const browserSheet = document.getElementById('browser-sheet');
-const sheetUrl = document.getElementById('sheet-url');
-const sheetTitle = document.getElementById('sheet-title');
-const sheetSummary = document.getElementById('sheet-summary');
-const btnCloseSheet = document.getElementById('btn-close-sheet');
+// Contextual Work Surface Drawer
+const contextualWorkspace = document.getElementById('contextual-workspace');
+const workspaceDrawerTitle = document.getElementById('workspace-drawer-title');
+const btnCloseWorkspace = document.getElementById('btn-close-workspace');
+const btnTakeControl = document.getElementById('btn-take-control');
+const deckUrlBar = document.getElementById('deck-url-bar');
+const deckBrowserUrl = document.getElementById('deck-browser-url');
+const deckBrowserTitle = document.getElementById('deck-browser-title');
+const deckBrowserContent = document.getElementById('deck-browser-content');
+const deckMilestonesList = document.getElementById('deck-milestones-list');
 
-const sentinelCard = document.getElementById('sentinel-card');
-const sentinelTitle = document.getElementById('sentinel-action-title');
-const sentinelDesc = document.getElementById('sentinel-action-desc');
-const sentinelRiskPill = document.getElementById('sentinel-risk-pill');
-const sentinelDetailsGrid = document.getElementById('sentinel-details-grid');
-const btnApprove = document.getElementById('btn-sentinel-approve');
-const btnReject = document.getElementById('btn-sentinel-reject');
+// Modal Dialog
+const viewsModalOverlay = document.getElementById('views-modal-overlay');
+const modalTitle = document.getElementById('modal-title');
+const modalContent = document.getElementById('modal-content');
+const btnCloseModal = document.getElementById('btn-close-modal');
 
 // ==========================================
-// 1. Navigation & Expandable Workspace Deck
+// 1. Navigation, Drawer & Conversations
 // ==========================================
 function toggleDrawer(open) {
   const shouldOpen = open !== undefined ? open : !sideDrawer.classList.contains('open');
@@ -80,387 +95,191 @@ btnToggleDrawer?.addEventListener('click', () => toggleDrawer(true));
 btnCloseDrawer?.addEventListener('click', () => toggleDrawer(false));
 drawerOverlay?.addEventListener('click', () => toggleDrawer(false));
 
-btnExpandWorkspace?.addEventListener('click', () => {
-  appShell.classList.toggle('compact-forced');
-  const isCompact = appShell.classList.contains('compact-forced');
-  btnExpandWorkspace.classList.toggle('active', !isCompact);
-  btnExpandWorkspace.title = isCompact ? "Switch to Dual-Pane Work Surface" : "Switch to Focused Chat";
-});
+btnNewConversation?.addEventListener('click', () => handleNewConversation());
+btnDrawerNewConv?.addEventListener('click', () => handleNewConversation());
 
-drawerItems.forEach(item => {
-  item.addEventListener('click', () => {
-    const viewName = item.dataset.view;
-    drawerItems.forEach(i => i.classList.remove('active'));
-    item.classList.add('active');
+function handleNewConversation() {
+  const title = prompt('Name your project thread (or leave empty for a new chat):');
+  if (title === null) return;
+  const newTitle = title.trim() || `Project Chat ${state.conversations.length + 1}`;
+  
+  socket?.send(JSON.stringify({
+    type: 'create_conversation',
+    title: newTitle,
+    type: 'project'
+  }));
 
-    toggleDrawer(false);
+  const localConv = {
+    id: `conv_${Date.now()}`,
+    title: newTitle,
+    type: 'project',
+    messages: []
+  };
+  state.conversations.unshift(localConv);
+  switchConversation(localConv.id);
+  toggleDrawer(false);
+}
 
-    if (viewName === 'chat') {
-      // In mobile or small window, keep focus on chat
+function renderConversationsList() {
+  if (!conversationsListEl) return;
+  const list = state.conversations || [];
+  conversationsListEl.innerHTML = list.map(c => {
+    const isActive = c.id === state.currentConversationId;
+    const isMain = c.id === 'conv_main';
+    const icon = isMain ? '💬' : '📁';
+    return `
+      <div class="conv-item ${isActive ? 'active' : ''}" onclick="switchConversation('${c.id}')">
+        <span style="font-size: 13px; margin-right: 6px;">${icon}</span>
+        <span class="conv-title">${escapeHtml(c.title)}</span>
+        ${!isMain ? `<button class="conv-del-btn" onclick="event.stopPropagation(); deleteConversation('${c.id}')" title="Delete thread">✕</button>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+window.switchConversation = function(convId) {
+  state.currentConversationId = convId;
+  renderConversationsList();
+  toggleDrawer(false);
+
+  const activeConv = (state.conversations || []).find(c => c.id === convId);
+  if (personaNameDisplay) {
+    personaNameDisplay.textContent = activeConv?.id === 'conv_main' ? (state.persona?.name || 'Muse') : activeConv?.title || 'Project';
+  }
+
+  // Clear current timeline and re-render conversation messages
+  streamList.innerHTML = '';
+  const messages = activeConv?.messages || [];
+  if (messages.length === 0) {
+    if (welcomeCard) welcomeCard.style.display = 'flex';
+  } else {
+    if (welcomeCard) welcomeCard.style.display = 'none';
+    messages.forEach(m => {
+      appendMessage(m.role, m.content, { skipSave: true });
+    });
+  }
+};
+
+window.deleteConversation = function(convId) {
+  if (confirm('Delete this project conversation?')) {
+    socket?.send(JSON.stringify({ type: 'delete_conversation', id: convId }));
+    state.conversations = state.conversations.filter(c => c.id !== convId);
+    if (state.currentConversationId === convId) {
+      window.switchConversation('conv_main');
     } else {
-      appShell.classList.remove('compact-forced');
-      btnExpandWorkspace.classList.add('active');
-      showSubView(viewName);
+      renderConversationsList();
     }
+  }
+};
+
+// Drawer Sub-View Modals
+document.querySelectorAll('.drawer-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const view = item.dataset.view;
+    toggleDrawer(false);
+    if (view === 'goals') openModal('🎯 Tasks & Durable Goals', renderGoalsHtml());
+    else if (view === 'activity') openModal('⚡ Activity & Audit Trail', renderActivityHtml());
+    else if (view === 'approvals') openModal('🛡️ Sentinel Approvals', renderApprovalsHtml());
+    else if (view === 'memory') openModal('🧠 Personal Memory & Preferences', renderMemoryHtml());
+    else if (view === 'persona') openModal('✨ Personalize Muse', renderPersonaHtml());
+    else if (view === 'connections') openModal('🔌 Connected Models & Sandboxes', renderConnectionsHtml());
   });
 });
 
-function showSubView(viewName) {
-  document.querySelectorAll('.sub-view').forEach(v => v.style.display = 'none');
-  const target = document.getElementById(`view-${viewName}`);
-  if (target) {
-    target.style.display = 'block';
-    if (viewName === 'workspace-home') renderWorkspaceHome();
-    else if (viewName === 'goals') renderGoals();
-    else if (viewName === 'activity') renderActivity();
-    else if (viewName === 'approvals') renderApprovalsQueue();
-    else if (viewName === 'connections') renderConnections();
-    else if (viewName === 'memory') renderMemory();
-  }
+avatarIdentityTrigger?.addEventListener('click', () => {
+  openModal('✨ Personalize Muse', renderPersonaHtml());
+});
+
+// Modal Helpers
+function openModal(titleText, html) {
+  if (!viewsModalOverlay) return;
+  modalTitle.textContent = titleText;
+  modalContent.innerHTML = html;
+  viewsModalOverlay.style.display = 'flex';
 }
 
-// Live Work Surface: Browser Takeover & Task Controls
-const btnTakeControl = document.getElementById('btn-take-control');
-let userInControl = false;
+function closeModal() {
+  if (viewsModalOverlay) viewsModalOverlay.style.display = 'none';
+}
+
+btnCloseModal?.addEventListener('click', closeModal);
+viewsModalOverlay?.addEventListener('click', (e) => {
+  if (e.target === viewsModalOverlay) closeModal();
+});
+
+// ==========================================
+// 2. Contextual Work Surface Drawer
+// ==========================================
+function openContextualWorkspace() {
+  if (!contextualWorkspace) return;
+  contextualWorkspace.style.display = 'flex';
+  if (btnToggleWorkspace) btnToggleWorkspace.style.display = 'flex';
+}
+
+function closeContextualWorkspace() {
+  if (!contextualWorkspace) return;
+  contextualWorkspace.style.display = 'none';
+}
+
+btnToggleWorkspace?.addEventListener('click', () => {
+  if (contextualWorkspace.style.display === 'none') openContextualWorkspace();
+  else closeContextualWorkspace();
+});
+
+btnCloseWorkspace?.addEventListener('click', closeContextualWorkspace);
+headerActiveTaskPill?.addEventListener('click', openContextualWorkspace);
+
+// Live Takeover Intervention
 btnTakeControl?.addEventListener('click', () => {
   userInControl = !userInControl;
   btnTakeControl.textContent = userInControl ? '🤖 Return to Muse' : '✋ Take Control';
   btnTakeControl.classList.toggle('active', userInControl);
-  const statusEl = document.getElementById('browser-deck-status');
-  if (statusEl) {
-    statusEl.textContent = userInControl ? 'User Manual Takeover Active' : 'Isolated Agent Sandbox • Connected';
+  if (deckBrowserTitle) {
+    deckBrowserTitle.textContent = userInControl ? 'Manual Control Active' : 'Agent Sandbox Active';
   }
 });
 
-let isTaskPaused = false;
-const btnPauseTask = document.getElementById('btn-pause-task');
-btnPauseTask?.addEventListener('click', () => {
-  isTaskPaused = !isTaskPaused;
-  btnPauseTask.textContent = isTaskPaused ? '▶ Resume' : '⏸ Pause';
-  btnPauseTask.classList.toggle('active', isTaskPaused);
-  const statusPill = document.getElementById('active-work-status-pill');
-  if (statusPill) {
-    statusPill.textContent = isTaskPaused ? 'Paused' : 'Working';
-    statusPill.className = isTaskPaused ? 'status-pill-pulse paused' : 'status-pill-pulse';
+function updateBrowserDeck(url, title, content) {
+  if (url && url !== 'about:blank') {
+    if (deckBrowserUrl) deckBrowserUrl.textContent = url;
+    if (deckUrlBar) deckUrlBar.style.display = 'flex';
   }
-});
-
-const btnBackHome = document.getElementById('btn-back-home');
-btnBackHome?.addEventListener('click', () => {
-  showSubView('workspace-home');
-});
-
-// Contextual Workspace Home Rendering
-function renderWorkspaceHome() {
-  const tasksCountEl = document.getElementById('metric-tasks-count');
-  const goalsCountEl = document.getElementById('metric-goals-count');
-  const modelNameEl = document.getElementById('metric-model-name');
-  const tasksListEl = document.getElementById('workspace-tasks-list');
-
-  const activeTasks = (state.tasks || []).filter(t => t.status === 'running' || t.status === 'active' || t.status === 'waiting_approval');
-  const totalTasks = (state.tasks || []).length;
-  const totalGoals = (state.goals || []).length;
-
-  if (tasksCountEl) tasksCountEl.textContent = String(activeTasks.length || totalTasks || 0);
-  if (goalsCountEl) goalsCountEl.textContent = String(totalGoals || 0);
-  if (modelNameEl) modelNameEl.textContent = state.activeModel ? state.activeModel.split(' ')[0] + ' ' + (state.activeModel.split(' ')[1] || '') : 'Gemini Flash';
-
-  if (!tasksListEl) return;
-  if (!state.tasks || state.tasks.length === 0) {
-    tasksListEl.innerHTML = `
-      <div class="workspace-empty-card">
-        <div class="empty-icon-wrap">🎯</div>
-        <h4>No background tasks running</h4>
-        <p>Ask Muse to research a topic, compare products, or automate a web task. Tasks run with durable checkpoints in the background.</p>
-        <div class="empty-quick-prompts">
-          <button class="empty-prompt-btn" onclick="quickFillPrompt('Find the top 3 best flight deals to Tokyo under $600 and compare them')">✈️ Tokyo Flights</button>
-          <button class="empty-prompt-btn" onclick="quickFillPrompt('Compare iPad Air and Samsung Galaxy Tab S9 specifications and prices')">🛒 Compare Tablets</button>
-          <button class="empty-prompt-btn" onclick="quickFillPrompt('Browse news.ycombinator.com and summarize the top AI discussions')">📰 Hacker News AI</button>
-        </div>
-      </div>
-    `;
-    return;
-  }
-
-  tasksListEl.innerHTML = state.tasks.slice(0, 4).map(t => {
-    const isCompleted = t.status === 'completed';
-    const progress = t.progress || (isCompleted ? 100 : 30);
-    return `
-      <div class="goal-card" style="margin-bottom: 8px;">
-        <div class="goal-card-header">
-          <span class="goal-title">${escapeHtml(t.title)}</span>
-          <span class="goal-status-badge ${isCompleted ? 'completed' : 'active'}">${t.status}</span>
-        </div>
-        <div class="goal-progress-bar" style="margin-bottom: 6px;">
-          <div class="goal-progress-fill" style="width: ${progress}%"></div>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:11px; color:#9AA9BC;">Step ${t.step || 1} • ${progress}% complete</span>
-          ${!isCompleted ? `<button class="btn-small-add" onclick="resumeTask('${t.id}')">▶ Resume</button>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
+  if (title && deckBrowserTitle) deckBrowserTitle.textContent = title;
+  if (content && deckBrowserContent) deckBrowserContent.textContent = content;
 }
 
-window.quickFillPrompt = function(promptText) {
-  if (userInput) {
-    userInput.value = promptText;
-    userInput.focus();
-  }
-};
+function addBrowserMilestone(title, detail, status = 'done') {
+  if (!deckMilestonesList) return;
+  const empty = deckMilestonesList.querySelector('.empty-state');
+  if (empty) empty.remove();
 
-function updateGreeting() {
-  const hour = new Date().getHours();
-  let greeting = 'Good morning';
-  if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
-  else if (hour >= 17 || hour < 4) greeting = 'Good evening';
+  milestoneCount++;
+  const item = document.createElement('div');
+  item.className = 'timeline-milestone';
 
-  const greetingEl = document.getElementById('welcome-greeting');
-  if (greetingEl) greetingEl.textContent = greeting;
-}
+  let icon = '🌐';
+  if (title.toLowerCase().includes('search')) icon = '🔍';
+  else if (title.toLowerCase().includes('dom') || title.toLowerCase().includes('extract')) icon = '📄';
+  else if (title.toLowerCase().includes('security') || title.toLowerCase().includes('approval')) icon = '🛡️';
+  else if (title.toLowerCase().includes('complete')) icon = '✅';
 
-// Continue Work Section Quick Shortcuts
-document.getElementById('card-action-research')?.addEventListener('click', () => {
-  quickFillPrompt('Research best noise-cancelling headphones under $250 and compare reviews');
-});
+  const timeStr = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
 
-document.getElementById('card-action-goals')?.addEventListener('click', () => {
-  showSubView('goals');
-});
-
-document.getElementById('card-action-activity')?.addEventListener('click', () => {
-  showSubView('activity');
-});
-
-// Render "Pick Up Where You Left Off" Section
-function renderWelcomeResumeSection() {
-  const section = document.getElementById('welcome-resume-section');
-  const list = document.getElementById('welcome-resume-list');
-  if (!section || !list) return;
-
-  const active = (state.tasks || []).filter(t => t.status === 'running' || t.status === 'waiting_approval' || t.status === 'queued' || t.status === 'active');
-  if (active.length === 0) {
-    section.style.display = 'none';
-    return;
-  }
-
-  section.style.display = 'block';
-  list.innerHTML = active.slice(0, 3).map(t => `
-    <div class="resume-card">
+  item.innerHTML = `
+    <div class="milestone-left">
+      <span style="font-size:14px;">${icon}</span>
       <div>
-        <div class="resume-card-title">${escapeHtml(t.title)}</div>
-        <div class="resume-card-step">Status: ${escapeHtml(t.status)} • Step ${t.step || 1} (${t.progress || 20}%)</div>
+        <div class="milestone-title">${escapeHtml(title)}</div>
+        <div class="milestone-detail">${escapeHtml(detail)} <span style="font-size:10px; color:#64748b; margin-left:4px;">${timeStr}</span></div>
       </div>
-      <button class="btn-small-add" style="padding:3px 9px;" onclick="resumeTask('${t.id}')">▶ Resume</button>
     </div>
-  `).join('');
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    <span class="milestone-badge ${status}">${status}</span>
+  `;
+  deckMilestonesList.insertBefore(item, deckMilestonesList.firstChild);
 }
 
 // ==========================================
-// 2. Render Secondary Sub-Views
-// ==========================================
-function renderGoals() {
-  const container = document.getElementById('goals-list');
-  if (!container) return;
-  const list = state.tasks && state.tasks.length > 0 ? state.tasks : state.goals;
-  if (!list || list.length === 0) {
-    container.innerHTML = '<div class="empty-state">No goals tracked yet. Type a goal in chat to begin!</div>';
-    return;
-  }
-  container.innerHTML = list.map(g => {
-    const isCompleted = g.status === 'completed';
-    const statusClass = isCompleted ? 'completed' : 'active';
-    const progress = Math.min(100, Math.max(0, g.progress || (isCompleted ? 100 : 25)));
-    const canResume = !isCompleted && g.status !== 'failed';
-    const checkpointCount = g.checkpoints ? g.checkpoints.length : 0;
-    return `
-      <div class="goal-card">
-        <div class="goal-card-header">
-          <span class="goal-title">${escapeHtml(g.title)}</span>
-          <span class="goal-status-badge ${statusClass}">${g.status}</span>
-        </div>
-        <div class="goal-progress-bar" style="margin-bottom: 6px;">
-          <div class="goal-progress-fill" style="width: ${progress}%"></div>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:10.5px; color:#9AA9BC;">${checkpointCount > 0 ? `${checkpointCount} checkpoint(s)` : (g.step ? `Step ${g.step}` : 'Initialized')}</span>
-          ${canResume ? `<button class="btn-small-add" style="padding:2px 8px; font-size:10px;" onclick="resumeTask('${g.id}')">▶ Resume</button>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-window.resumeTask = function(taskId) {
-  socket?.send(JSON.stringify({ type: 'resume_task', taskId }));
-  showTaskProgressBanner('Resuming Task', 'Rehydrating checkpoint messages...', 40, 1);
-};
-
-function renderActivity() {
-  const container = document.getElementById('activity-feed');
-  if (!container) return;
-  if (!state.activity || state.activity.length === 0) {
-    container.innerHTML = '<div class="empty-state">No activity recorded yet.</div>';
-    return;
-  }
-  container.innerHTML = state.activity.map(item => {
-    let icon = '⚡';
-    if (item.type === 'tool_call') icon = '🌐';
-    else if (item.type === 'tool_result') icon = '📄';
-    else if (item.type === 'sentinel_interception') icon = '🛡️';
-    else if (item.type === 'thinking') icon = '🧠';
-    else if (item.type === 'complete') icon = '✅';
-
-    const timeStr = item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
-
-    return `
-      <div class="activity-item">
-        <span class="activity-icon">${icon}</span>
-        <div style="flex:1;">
-          <div class="activity-title">${escapeHtml(item.title || item.type)} <span style="font-size:10px; color:#64748b; font-weight:normal; margin-left:4px;">${timeStr}</span></div>
-          <div class="activity-detail">${escapeHtml(item.detail || '')}</div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function updateApprovalBadge() {
-  const count = pendingApprovals.size;
-  if (approvalBadge) {
-    if (count > 0) {
-      approvalBadge.textContent = count;
-      approvalBadge.style.display = 'inline-block';
-    } else {
-      approvalBadge.style.display = 'none';
-    }
-  }
-  renderApprovalsQueue();
-}
-
-function renderApprovalsQueue() {
-  const container = document.getElementById('approvals-queue');
-  if (!container) return;
-  if (pendingApprovals.size === 0) {
-    container.innerHTML = '<div class="empty-state">🛡️ No pending approvals. Your actions are safe.</div>';
-    return;
-  }
-  container.innerHTML = Array.from(pendingApprovals.values()).map(req => {
-    return `
-      <div class="human-sentinel-card" style="margin: 0 0 10px 0;">
-        <div class="sentinel-banner">
-          <span class="sentinel-shield">🛡️</span>
-          <div>
-            <span class="sentinel-tag">AUTHORIZATION REQUIRED</span>
-            <span class="risk-pill">${escapeHtml(req.riskLevel || 'HIGH RISK')}</span>
-          </div>
-        </div>
-        <div class="sentinel-action-title">${escapeHtml(req.action)}</div>
-        <p class="sentinel-action-desc">${escapeHtml(req.reason || 'Authorization required for outbound request.')}</p>
-        <div class="sentinel-details-grid">
-          ${renderHumanDetails(req.params)}
-        </div>
-        <div class="sentinel-actions">
-          <button class="btn-reject" onclick="handleSentinelAction('${req.confirmId}', false)">✕ Reject</button>
-          <button class="btn-approve" onclick="handleSentinelAction('${req.confirmId}', true)">✓ Authorize</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderHumanDetails(params = {}) {
-  const entries = Object.entries(params);
-  if (entries.length === 0) return '<div class="detail-row"><span class="detail-val">Standard parameters</span></div>';
-  return entries.map(([key, val]) => `
-    <div class="detail-row">
-      <span class="detail-label">${escapeHtml(key)}:</span>
-      <span class="detail-val">${escapeHtml(typeof val === 'object' ? JSON.stringify(val) : String(val))}</span>
-    </div>
-  `).join('');
-}
-
-window.handleSentinelAction = function(confirmId, approved) {
-  socket?.send(JSON.stringify({ type: 'confirm_response', confirmId, approved }));
-  pendingApprovals.delete(confirmId);
-  if (pendingConfirmId === confirmId) {
-    sentinelCard.style.display = 'none';
-    pendingConfirmId = null;
-  }
-  updateApprovalBadge();
-  setAvatarState(approved ? 'thinking' : 'idle');
-};
-
-function renderConnections() {
-  const container = document.getElementById('connections-list');
-  if (!container) return;
-  const list = state.connections || [];
-  container.innerHTML = list.map(item => `
-    <div class="connection-row">
-      <div class="connection-info">
-        <span class="connection-icon">${item.icon || '🔌'}</span>
-        <div>
-          <div class="connection-name">${escapeHtml(item.name)}</div>
-          <div class="connection-desc">${escapeHtml(item.detail || '')}</div>
-        </div>
-      </div>
-      <span class="goal-status-badge ${item.status === 'Active' || item.status === 'Connected' ? 'active' : 'completed'}">${item.status}</span>
-    </div>
-  `).join('');
-}
-
-function renderMemory() {
-  const container = document.getElementById('memory-list');
-  if (!container) return;
-  if (!state.memories || state.memories.length === 0) {
-    container.innerHTML = '<div class="empty-state">No saved memories. Click "+ Add" to teach Muse your preferences.</div>';
-    return;
-  }
-
-  container.innerHTML = state.memories.map(m => `
-    <div class="memory-card">
-      <div>
-        <div class="memory-key">${escapeHtml(m.key)} <span style="font-size:10px; color:#64748b; font-weight:normal;">(${escapeHtml(m.category || 'general')})</span></div>
-        <div class="memory-val">${escapeHtml(m.value)}</div>
-      </div>
-      <button class="btn-del-mem" onclick="handleDeleteMemory('${m.id}')" title="Delete Memory">🗑️</button>
-    </div>
-  `).join('');
-}
-
-window.handleDeleteMemory = function(id) {
-  if (confirm('Delete this memory item?')) {
-    socket?.send(JSON.stringify({ type: 'delete_memory', id }));
-  }
-};
-
-const btnAddMemory = document.getElementById('btn-add-memory');
-if (btnAddMemory) {
-  btnAddMemory.addEventListener('click', () => {
-    const key = prompt('Enter memory topic (e.g. "Coffee Preference", "Preferred Airline"):');
-    if (!key) return;
-    const value = prompt(`Enter details for "${key}":`);
-    if (!value) return;
-    socket?.send(JSON.stringify({
-      type: 'add_memory',
-      memory: { key, value, category: 'personal' }
-    }));
-  });
-}
-
-// ==========================================
-// 3. Subtle Living Avatar & Blinking
+// 3. Living Avatar, Gaze & Lip-Sync
 // ==========================================
 const BASE_PUPIL_LEFT = { x: 36, y: 44 };
 const BASE_PUPIL_RIGHT = { x: 64, y: 44 };
@@ -500,13 +319,13 @@ function blink() {
 }
 setTimeout(blink, 2000);
 
-// Avatar States
 function setAvatarState(stateKey) {
   if (!avatarWrapper) return;
   avatarWrapper.classList.remove('thinking', 'speaking', 'sentinel');
 
   switch (stateKey) {
     case 'thinking':
+    case 'working':
       avatarWrapper.classList.add('thinking');
       agentStatusPill.textContent = 'Thinking';
       agentStatusPill.style.color = '#c084fc';
@@ -519,8 +338,8 @@ function setAvatarState(stateKey) {
     case 'speaking':
       avatarWrapper.classList.add('speaking');
       agentStatusPill.textContent = 'Speaking';
-      agentStatusPill.style.color = '#54C8E8';
-      agentStatusPill.style.borderColor = 'rgba(84, 200, 232, 0.4)';
+      agentStatusPill.style.color = '#65C8E8';
+      agentStatusPill.style.borderColor = 'rgba(101, 200, 232, 0.4)';
       startMouthMorph();
       break;
 
@@ -545,60 +364,39 @@ function setAvatarState(stateKey) {
   }
 }
 
-// Lip-Sync Mouth Morphing
 const MOUTH_SHAPES = [
   'M 42 66 Q 50 76 58 66',
   'M 44 64 Q 50 78 56 64',
   'M 41 67 Q 50 71 59 67',
-  'M 43 68 Q 50 77 57 68'
+  'M 40 68 Q 50 75 60 68'
 ];
 
 function startMouthMorph() {
   if (mouthAnimationInterval) return;
   let idx = 0;
   mouthAnimationInterval = setInterval(() => {
-    idx = (idx + 1) % MOUTH_SHAPES.length;
-    avatarMouth.setAttribute('d', MOUTH_SHAPES[idx]);
-  }, 110);
+    avatarMouth.setAttribute('d', MOUTH_SHAPES[idx % MOUTH_SHAPES.length]);
+    idx++;
+  }, 140);
 }
 
 function stopMouthMorph() {
   if (mouthAnimationInterval) {
     clearInterval(mouthAnimationInterval);
     mouthAnimationInterval = null;
+    avatarMouth.setAttribute('d', 'M 40 68 Q 50 75 60 68');
   }
-  avatarMouth.setAttribute('d', 'M 40 68 Q 50 75 60 68');
 }
 
-// ==========================================
-// 4. Voice Audio (TTS & STT)
-// ==========================================
 function speakText(text) {
-  if (!voiceEnabled || !('speechSynthesis' in window)) return;
-
+  if (!voiceEnabled || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const clean = text.replace(/[*_#`~\[\]]/g, '').slice(0, 300);
-
+  const clean = text.replace(/[*#`_~\[\]]/g, '').slice(0, 300);
   const utterance = new SpeechSynthesisUtterance(clean);
   utterance.rate = 1.05;
   utterance.pitch = 1.0;
-
-  const voices = window.speechSynthesis.getVoices();
-  const naturalVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
-  if (naturalVoice) utterance.voice = naturalVoice;
-
-  utterance.onstart = () => {
-    isSpeaking = true;
-    setAvatarState('speaking');
-    btnVoiceToggle?.classList.add('speaking');
-  };
-
-  utterance.onend = utterance.onerror = () => {
-    isSpeaking = false;
-    setAvatarState('idle');
-    btnVoiceToggle?.classList.remove('speaking');
-  };
-
+  utterance.onstart = () => { isSpeaking = true; setAvatarState('speaking'); };
+  utterance.onend = utterance.onerror = () => { isSpeaking = false; setAvatarState('idle'); };
   window.speechSynthesis.speak(utterance);
 }
 
@@ -611,6 +409,7 @@ btnVoiceToggle?.addEventListener('click', () => {
   }
 });
 
+// Voice Dictation (Speech Recognition)
 let recognition = null;
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -638,18 +437,304 @@ if (SpeechRecognition) {
   };
 
   btnMic?.addEventListener('click', () => {
-    if (btnMic.classList.contains('listening')) {
-      recognition.stop();
-    } else {
-      recognition.start();
-    }
+    if (btnMic.classList.contains('listening')) recognition.stop();
+    else recognition.start();
   });
 } else if (btnMic) {
   btnMic.style.display = 'none';
 }
 
+function updateGreeting() {
+  const hour = new Date().getHours();
+  let greeting = 'Good morning';
+  if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+  else if (hour >= 17 || hour < 4) greeting = 'Good evening';
+  if (welcomeGreeting) welcomeGreeting.textContent = greeting;
+}
+
 // ==========================================
-// 5. WebSocket & Real-Time Task Execution
+// 4. Inline Tasks & Conversational Stream
+// ==========================================
+if (window.marked) {
+  try {
+    marked.setOptions({ gfm: true, breaks: true });
+  } catch (e) {}
+}
+
+function formatMarkdown(content) {
+  if (window.marked) {
+    try {
+      return marked.parse(content);
+    } catch (e) {}
+  }
+  return escapeHtml(content).replace(/\n/g, '<br>');
+}
+
+function appendMessage(role, content, options = {}) {
+  if (welcomeCard) welcomeCard.style.display = 'none';
+
+  // Save to active conversation state unless restoring
+  if (!options.skipSave) {
+    const activeConv = state.conversations.find(c => c.id === state.currentConversationId);
+    if (activeConv) {
+      if (!activeConv.messages) activeConv.messages = [];
+      activeConv.messages.push({ role, content, timestamp: new Date().toISOString() });
+      socket?.send(JSON.stringify({
+        type: 'save_conversation_messages',
+        id: activeConv.id,
+        messages: activeConv.messages
+      }));
+    }
+  }
+
+  const row = document.createElement('div');
+  row.className = `msg-row ${role}`;
+
+  const icon = document.createElement('div');
+  icon.className = 'msg-avatar-icon';
+  icon.textContent = role === 'assistant' ? '✨' : '👤';
+
+  const bubbleWrapper = document.createElement('div');
+  bubbleWrapper.className = 'msg-bubble-wrapper';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+
+  if (role === 'assistant') {
+    bubble.innerHTML = formatMarkdown(content);
+
+    // Code blocks with header and 1-click copy
+    bubble.querySelectorAll('pre code').forEach((codeBlock) => {
+      const pre = codeBlock.parentElement;
+      const langClass = Array.from(codeBlock.classList).find(c => c.startsWith('language-'));
+      const lang = langClass ? langClass.replace('language-', '') : 'code';
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-block-wrapper';
+
+      const header = document.createElement('div');
+      header.className = 'code-header';
+      header.innerHTML = `
+        <span class="code-lang">${lang}</span>
+        <button class="code-copy-btn" title="Copy snippet">📋 Copy</button>
+      `;
+
+      const copyBtn = header.querySelector('.code-copy-btn');
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(codeBlock.innerText);
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => copyBtn.textContent = '📋 Copy', 2000);
+      });
+
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(header);
+      wrapper.appendChild(pre);
+
+      if (window.hljs) {
+        try { hljs.highlightElement(codeBlock); } catch {}
+      }
+    });
+
+    // Assistant Toolbar
+    const toolbar = document.createElement('div');
+    toolbar.className = 'msg-toolbar';
+    toolbar.innerHTML = `
+      <span>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+      <button class="msg-action-btn btn-copy" title="Copy response">📋</button>
+      <button class="msg-action-btn btn-speak" title="Read aloud">🔊</button>
+    `;
+
+    toolbar.querySelector('.btn-copy').addEventListener('click', (e) => {
+      navigator.clipboard.writeText(content);
+      e.currentTarget.textContent = '✓';
+      setTimeout(() => e.currentTarget.textContent = '📋', 1500);
+    });
+
+    toolbar.querySelector('.btn-speak').addEventListener('click', () => {
+      speakText(content);
+    });
+
+    bubbleWrapper.appendChild(bubble);
+    bubbleWrapper.appendChild(toolbar);
+  } else {
+    bubble.textContent = content;
+    bubbleWrapper.appendChild(bubble);
+  }
+
+  row.appendChild(icon);
+  row.appendChild(bubbleWrapper);
+  streamList.appendChild(row);
+
+  timeline.scrollTop = timeline.scrollHeight;
+}
+
+// Inline Task Card Generator
+function createInlineTaskCard(taskId, title, status = 'Planning', progress = 15, stepDesc = 'Initializing task') {
+  currentActiveTaskId = taskId;
+  const existing = document.getElementById(`inline-task-${taskId}`);
+  if (existing) return existing;
+
+  const card = document.createElement('div');
+  card.className = 'inline-task-card';
+  card.id = `inline-task-${taskId}`;
+  card.innerHTML = `
+    <div class="task-card-header">
+      <div class="task-card-left">
+        <span class="pulse-dot purple"></span>
+        <div>
+          <span class="task-card-eyebrow">AUTONOMOUS TASK</span>
+          <h4 class="task-card-title">${escapeHtml(title)}</h4>
+        </div>
+      </div>
+      <span class="task-card-status" id="task-status-${taskId}">${escapeHtml(status)}</span>
+    </div>
+    <div class="task-card-bar">
+      <div class="task-card-fill" id="task-fill-${taskId}" style="width: ${progress}%;"></div>
+    </div>
+    <div class="task-card-footer">
+      <span class="task-card-step" id="task-step-${taskId}">${escapeHtml(stepDesc)}</span>
+      <div class="task-card-btns">
+        <button class="btn-task-action" id="btn-pause-${taskId}" onclick="toggleTaskPause('${taskId}')">⏸ Pause</button>
+        <button class="btn-task-action" onclick="openContextualWorkspace()">🌐 View Surface</button>
+      </div>
+    </div>
+  `;
+
+  streamList.appendChild(card);
+  timeline.scrollTop = timeline.scrollHeight;
+
+  // Also update topbar active task pill
+  if (headerActiveTaskPill) {
+    headerActiveTaskPill.style.display = 'flex';
+    headerTaskTitle.textContent = title;
+  }
+  if (btnToggleWorkspace) {
+    btnToggleWorkspace.style.display = 'flex';
+  }
+
+  return card;
+}
+
+function updateInlineTaskCard(taskId, status, progress, stepDesc) {
+  const statusEl = document.getElementById(`task-status-${taskId}`);
+  const fillEl = document.getElementById(`task-fill-${taskId}`);
+  const stepEl = document.getElementById(`task-step-${taskId}`);
+  if (status && statusEl) {
+    statusEl.textContent = status;
+    if (status.toLowerCase().includes('done') || status.toLowerCase().includes('complete')) {
+      statusEl.className = 'task-card-status done';
+    }
+  }
+  if (progress !== undefined && fillEl) {
+    fillEl.style.width = `${progress}%`;
+  }
+  if (stepDesc && stepEl) {
+    stepEl.textContent = stepDesc;
+  }
+}
+
+window.toggleTaskPause = function(taskId) {
+  isTaskPaused = !isTaskPaused;
+  const btn = document.getElementById(`btn-pause-${taskId}`);
+  if (btn) btn.textContent = isTaskPaused ? '▶ Resume' : '⏸ Pause';
+  updateInlineTaskCard(taskId, isTaskPaused ? 'Paused' : 'Working', undefined, isTaskPaused ? 'Execution paused by user' : 'Resuming steps...');
+};
+
+// Inline Sentinel Authorization Card
+function renderInlineSentinelCard(data) {
+  const card = document.createElement('div');
+  card.className = 'sentinel-approval-card';
+  card.id = `sentinel-req-${data.confirmId}`;
+  card.innerHTML = `
+    <div class="sentinel-banner">
+      <span class="sentinel-tag">🛡️ AUTHORIZATION REQUIRED</span>
+      <span class="risk-pill">${escapeHtml(data.riskLevel || 'HIGH RISK')}</span>
+    </div>
+    <div class="sentinel-title">${escapeHtml(data.action)}</div>
+    <div class="sentinel-desc">${escapeHtml(data.reason || 'Muse requires your authorization for this outbound operation.')}</div>
+    <div class="sentinel-details">
+      ${Object.entries(data.params || {}).map(([k, v]) => `<div><strong>${escapeHtml(k)}:</strong> ${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</div>`).join('') || 'Standard parameters'}
+    </div>
+    <div class="sentinel-actions">
+      <button class="btn-reject" onclick="handleSentinelAction('${data.confirmId}', false)">✕ Reject Action</button>
+      <button class="btn-approve" onclick="handleSentinelAction('${data.confirmId}', true)">✓ Authorize Action</button>
+    </div>
+  `;
+  streamList.appendChild(card);
+  timeline.scrollTop = timeline.scrollHeight;
+}
+
+window.handleSentinelAction = function(confirmId, approved) {
+  socket?.send(JSON.stringify({ type: 'confirm_response', confirmId, approved }));
+  const card = document.getElementById(`sentinel-req-${confirmId}`);
+  if (card) {
+    card.innerHTML = `
+      <div style="font-size:12px; color:${approved ? '#32C98B' : '#F16B77'}; font-weight:600;">
+        ${approved ? '✓ Action Authorized' : '✕ Action Rejected'}
+      </div>
+    `;
+  }
+  pendingApprovals.delete(confirmId);
+  updateApprovalBadge();
+  setAvatarState(approved ? 'working' : 'idle');
+};
+
+function updateApprovalBadge() {
+  const count = pendingApprovals.size;
+  if (approvalBadge) {
+    if (count > 0) {
+      approvalBadge.textContent = count;
+      approvalBadge.style.display = 'inline-block';
+    } else {
+      approvalBadge.style.display = 'none';
+    }
+  }
+}
+
+// Starter Prompts Click
+document.querySelectorAll('.starter-card').forEach(btn => {
+  btn.addEventListener('click', () => {
+    userInput.value = btn.dataset.prompt;
+    chatForm.dispatchEvent(new Event('submit'));
+  });
+});
+
+// Auto-expand Textarea & Submit
+userInput?.addEventListener('input', () => {
+  userInput.style.height = 'auto';
+  userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
+});
+
+userInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    chatForm.dispatchEvent(new Event('submit'));
+  }
+});
+
+chatForm?.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = userInput.value.trim();
+  if (!text) return;
+
+  appendMessage('user', text);
+  userInput.value = '';
+  userInput.style.height = 'auto';
+
+  setAvatarState('thinking');
+  agentStatus.textContent = 'Working on your goal...';
+
+  const taskId = `task_${Date.now()}`;
+  createInlineTaskCard(taskId, text, 'Planning', 20, 'Analyzing goal and formulating plan...');
+
+  socket?.send(JSON.stringify({
+    type: 'goal',
+    text
+  }));
+});
+
+// ==========================================
+// 5. WebSocket & Real-Time Event Handlers
 // ==========================================
 function connect() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -674,176 +759,79 @@ function connect() {
   };
 }
 
-function updateBrowserDeck(url, title, content) {
-  const urlEl = document.getElementById('deck-browser-url');
-  const urlBar = document.getElementById('deck-url-bar');
-  const titleEl = document.getElementById('deck-browser-title');
-  const contentEl = document.getElementById('deck-browser-content');
-  if (url && url !== 'about:blank') {
-    if (urlEl) urlEl.textContent = url;
-    if (urlBar) urlBar.style.display = 'flex';
-  }
-  if (title && titleEl) titleEl.textContent = title;
-  if (content && contentEl) contentEl.textContent = content;
-}
-
-let milestoneCount = 0;
-function addBrowserMilestone(title, detail, status = 'done') {
-  const list = document.getElementById('deck-milestones-list');
-  const countEl = document.getElementById('deck-milestones-count');
-  if (!list) return;
-
-  const empty = list.querySelector('.empty-state');
-  if (empty) empty.remove();
-
-  milestoneCount++;
-  if (countEl) countEl.textContent = `${milestoneCount} step${milestoneCount > 1 ? 's' : ''} executed`;
-
-  const item = document.createElement('div');
-  item.className = `timeline-milestone ${status === 'running' ? 'running' : ''}`;
-  
-  let icon = '🌐';
-  if (title.toLowerCase().includes('search')) icon = '🔍';
-  else if (title.toLowerCase().includes('extract') || title.toLowerCase().includes('dom')) icon = '📄';
-  else if (title.toLowerCase().includes('security') || title.toLowerCase().includes('approval')) icon = '🛡️';
-  else if (title.toLowerCase().includes('plan')) icon = '🧠';
-  else if (title.toLowerCase().includes('complete')) icon = '✅';
-
-  const timeStr = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-
-  item.innerHTML = `
-    <div class="milestone-left">
-      <span class="milestone-icon">${icon}</span>
-      <div>
-        <div class="milestone-title">${escapeHtml(title)}</div>
-        <div class="milestone-detail">${escapeHtml(detail)} <span style="font-size:10px; color:#64748b; margin-left:6px;">${timeStr}</span></div>
-      </div>
-    </div>
-    <span class="milestone-badge ${status}">${status}</span>
-  `;
-  list.insertBefore(item, list.firstChild);
-}
-
 function handleServerEvent(data) {
   switch (data.type) {
     case 'init_state':
       state.activeModel = data.activeModel || 'Gemini Flash';
-      if (modelNameEl) {
-        modelNameEl.textContent = state.activeModel.split(' ')[0] + ' ' + (state.activeModel.split(' ')[1] || '');
-      }
       state.memories = data.memories || [];
       state.goals = data.goals || [];
       state.tasks = data.tasks || [];
-      state.incompleteTasks = data.incompleteTasks || [];
       state.activity = data.activity || [];
       state.connections = data.connections || [];
-      renderGoals();
-      renderActivity();
-      renderConnections();
-      renderMemory();
-      renderWelcomeResumeSection();
-      renderWorkspaceHome();
+      if (data.conversations && data.conversations.length > 0) {
+        state.conversations = data.conversations;
+      }
+      if (data.persona) {
+        state.persona = data.persona;
+        if (personaNameDisplay) personaNameDisplay.textContent = state.persona.name || 'Muse';
+      }
+      renderConversationsList();
+      renderWelcomeResume();
       updateGreeting();
-      showSubView('workspace-home');
       break;
 
     case 'tasks_restored':
       if (data.tasks && data.tasks.length > 0) {
         state.tasks = data.tasks;
-        renderGoals();
-        renderWelcomeResumeSection();
-        renderWorkspaceHome();
+        renderWelcomeResume();
         const first = data.tasks[0];
-        showTaskProgressBanner(first.title, `Restored checkpoint at step ${first.step}.`, first.progress || 35, first.step || 1);
-        appendMessage('assistant', `🔄 Restored in-flight task: "${first.title}". You can click Resume in Tasks or continue chatting.`);
-      }
-      break;
-
-    case 'task_resumed':
-      setAvatarState('thinking');
-      agentStatus.textContent = 'Resuming goal...';
-      showTaskProgressBanner(data.title || 'Resumed Task', 'Executing next step from checkpoint...', 50, data.step || 1);
-      showSubView('browser');
-      break;
-
-    case 'sync_state':
-      if (data.state) {
-        state = { ...state, ...data.state };
-        if (modelNameEl && state.activeModel) {
-          modelNameEl.textContent = state.activeModel.split(' ')[0] + ' ' + (state.activeModel.split(' ')[1] || '');
-        }
-        renderGoals();
-        renderActivity();
-        renderConnections();
-        renderMemory();
-        renderWelcomeResumeSection();
-        renderWorkspaceHome();
+        appendMessage('assistant', `🔄 Restored in-flight task: "${first.title}". Click Resume to continue.`);
       }
       break;
 
     case 'goal_created':
-      if (data.goal) {
-        state.goals = [data.goal, ...(state.goals || [])];
-        renderGoals();
-        renderWelcomeResumeSection();
-        renderWorkspaceHome();
-        showTaskProgressBanner(data.goal.title, 'Planning execution', 20, 1);
-        showSubView('browser');
-        const titleEl = document.getElementById('active-work-title');
-        if (titleEl) titleEl.textContent = data.goal.title;
-        const statusPill = document.getElementById('active-work-status-pill');
-        if (statusPill) {
-          statusPill.textContent = 'Working';
-          statusPill.className = 'status-pill-pulse';
-        }
+      if (data.task) {
+        currentActiveTaskId = data.task.id;
+        updateInlineTaskCard(data.task.id, 'Running', 30, 'Plan formulated. Executing first step...');
       }
       break;
 
     case 'thinking':
       setAvatarState('thinking');
       agentStatus.textContent = `Analyzing: Step ${data.step}...`;
-      updateTaskBannerStep(`Step ${data.step}`, `Formulating plan and next tool...`, Math.min(85, (data.step || 1) * 25));
+      if (currentActiveTaskId) {
+        updateInlineTaskCard(currentActiveTaskId, 'Running', Math.min(85, (data.step || 1) * 25), `Executing Step ${data.step}...`);
+      }
       break;
 
     case 'tool_call':
-      setAvatarState('thinking');
+      setAvatarState('working');
       agentStatus.textContent = `Executing: ${data.name}...`;
 
-      showSubView('browser');
-
       if (data.name === 'browser_navigate' && data.args?.url) {
-        browserSheet.style.display = 'block';
-        sheetUrl.textContent = data.args.url;
-        sheetTitle.textContent = `Opening ${data.args.url}...`;
-        sheetSummary.textContent = 'Navigating in isolated browser sandbox...';
-        updateTaskBannerStep('Browser Action', `Navigating to ${data.args.url}`, 60);
+        updateInlineTaskCard(currentActiveTaskId, 'Browsing', 60, `Browsing ${data.args.url}`);
         updateBrowserDeck(data.args.url, `Navigating to ${data.args.url}`, 'Loading remote page in isolated profile...');
-        addBrowserMilestone('Browser Navigation', `Navigating to ${data.args.url}`, 'running');
-        const btnTake = document.getElementById('btn-take-control');
-        if (btnTake) btnTake.style.display = 'inline-flex';
+        addBrowserMilestone('Browser Navigation', `Navigated to ${data.args.url}`, 'running');
+        if (btnTakeControl) btnTakeControl.style.display = 'inline-flex';
       } else if (data.name === 'browser_search') {
-        updateTaskBannerStep('Web Search', `Searching for: "${data.args.query}"`, 50);
+        updateInlineTaskCard(currentActiveTaskId, 'Searching', 50, `Searching for "${data.args.query}"`);
         const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(data.args.query || '')}`;
         updateBrowserDeck(searchUrl, `Search: ${data.args.query}`, 'Querying search index...');
-        addBrowserMilestone('Search Query', `Searching for "${data.args.query}"`, 'running');
-        const btnTake = document.getElementById('btn-take-control');
-        if (btnTake) btnTake.style.display = 'inline-flex';
+        addBrowserMilestone('Search Query', `Searched for "${data.args.query}"`, 'running');
+        if (btnTakeControl) btnTakeControl.style.display = 'inline-flex';
       } else if (data.name === 'browser_extract') {
-        updateTaskBannerStep('Extracting DOM', 'Extracting page text and tables...', 70);
+        updateInlineTaskCard(currentActiveTaskId, 'Extracting', 75, 'Extracting structured DOM tables & text');
         addBrowserMilestone('DOM Extraction', 'Extracting structured data from current page', 'running');
       }
       break;
 
     case 'tool_result':
       if (data.name === 'browser_navigate' && data.result?.title) {
-        sheetTitle.textContent = data.result.title;
-        sheetSummary.textContent = `Loaded ${data.result.url}`;
         updateBrowserDeck(data.result.url, data.result.title, `Loaded successfully (${data.result.status || 200})`);
         addBrowserMilestone('Page Loaded', `${data.result.title} (${data.result.url})`, 'done');
       } else if (data.name === 'browser_extract' && data.result?.text) {
-        sheetSummary.textContent = data.result.text.slice(0, 140) + '...';
         updateBrowserDeck(null, null, data.result.text.slice(0, 400) + '...');
-        addBrowserMilestone('Data Extracted', `Retrieved ${data.result.text.length} characters of structured DOM`, 'done');
+        addBrowserMilestone('Data Extracted', `Extracted ${data.result.text.length} characters of structured DOM`, 'done');
       }
       break;
 
@@ -851,244 +839,241 @@ function handleServerEvent(data) {
       setAvatarState('sentinel');
       pendingConfirmId = data.confirmId;
       pendingApprovals.set(data.confirmId, data);
-      
-      // Populate Human-Readable Card
-      sentinelTitle.textContent = data.action;
-      sentinelDesc.textContent = data.reason || 'Authorization required for this outbound request.';
-      sentinelRiskPill.textContent = data.riskLevel || 'HIGH RISK';
-      sentinelDetailsGrid.innerHTML = renderHumanDetails(data.params);
-      sentinelCard.style.display = 'block';
-      
       updateApprovalBadge();
-      updateTaskBannerStep('Approval Required', 'Waiting for your sign-off...', 80);
-      addBrowserMilestone('Security Interception', `Sentinel paused execution: ${data.action}`, 'running');
+      renderInlineSentinelCard(data);
+      if (currentActiveTaskId) {
+        updateInlineTaskCard(currentActiveTaskId, 'Review Required', 80, 'Waiting for your sign-off...');
+      }
       break;
 
     case 'complete':
       setAvatarState('idle');
       agentStatus.textContent = 'Goal accomplished';
-      hideTaskProgressBanner();
+      if (currentActiveTaskId) {
+        updateInlineTaskCard(currentActiveTaskId, 'Done', 100, 'Goal completed successfully.');
+      }
+      if (headerActiveTaskPill) {
+        headerActiveTaskPill.style.display = 'none';
+      }
+      if (btnTakeControl) {
+        btnTakeControl.style.display = 'none';
+      }
       appendMessage('assistant', data.result || 'Task completed.');
       if (data.result) speakText(data.result);
-
-      const statusPill = document.getElementById('active-work-status-pill');
-      if (statusPill) {
-        statusPill.textContent = 'Completed';
-        statusPill.className = 'status-pill-pulse done';
-      }
-      const btnTake = document.getElementById('btn-take-control');
-      if (btnTake) btnTake.style.display = 'none';
-      const btnPause = document.getElementById('btn-pause-task');
-      if (btnPause) btnPause.style.display = 'none';
-      addBrowserMilestone('Task Complete', 'All execution steps finished successfully', 'done');
-      renderWorkspaceHome();
       break;
 
     case 'error':
       setAvatarState('idle');
       agentStatus.textContent = 'Ready';
-      hideTaskProgressBanner();
+      if (currentActiveTaskId) {
+        updateInlineTaskCard(currentActiveTaskId, 'Failed', 100, `Error: ${data.message}`);
+      }
       appendMessage('assistant', `❌ Error: ${data.message}`);
-      addBrowserMilestone('Execution Error', data.message || 'Operation failed', 'pending');
       break;
   }
 }
+
+// "Pick up where you left off" Section in Welcome Screen
+function renderWelcomeResume() {
+  if (!welcomeResumeSection || !welcomeResumeList) return;
+  const active = (state.tasks || []).filter(t => t.status === 'running' || t.status === 'waiting_approval' || t.status === 'queued' || t.status === 'active');
+  if (active.length === 0) {
+    welcomeResumeSection.style.display = 'none';
+    return;
   }
+  welcomeResumeSection.style.display = 'block';
+  welcomeResumeList.innerHTML = active.slice(0, 2).map(t => `
+    <div class="resume-card">
+      <div>
+        <div class="resume-card-title">${escapeHtml(t.title)}</div>
+        <div class="resume-card-step">Status: ${escapeHtml(t.status)} • Step ${t.step || 1}</div>
+      </div>
+      <button class="btn-task-action" onclick="resumeTask('${t.id}')">▶ Resume</button>
+    </div>
+  `).join('');
 }
 
-// Task Progress Banner Helpers
-function showTaskProgressBanner(title, desc, percent, stepNum) {
-  if (!activeTaskBanner) return;
-  activeTaskBanner.style.display = 'block';
-  bannerTaskTitle.textContent = title;
-  bannerTaskDesc.textContent = desc;
-  bannerTaskFill.style.width = `${percent}%`;
-  bannerTaskStep.textContent = `Step ${stepNum || 1}`;
+window.resumeTask = function(taskId) {
+  socket?.send(JSON.stringify({ type: 'resume_task', taskId }));
+  const task = (state.tasks || []).find(t => t.id === taskId);
+  createInlineTaskCard(taskId, task?.title || 'Resumed Task', 'Resuming', 45, 'Rehydrating checkpoint messages...');
+};
+
+// ==========================================
+// 6. Sub-View HTML Generators for Modal
+// ==========================================
+function renderGoalsHtml() {
+  const list = state.goals || [];
+  if (list.length === 0) return '<div class="empty-state">No goals tracked yet. Tell Muse what you want to achieve!</div>';
+  return `
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      ${list.map(g => `
+        <div class="resume-card" style="margin:0;">
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:13px; color:#fff;">${escapeHtml(g.title)}</div>
+            <div style="font-size:11px; color:#9AA9BC; margin-top:2px;">Status: ${g.status} • Progress: ${g.progress || 0}%</div>
+          </div>
+          <span class="milestone-badge ${g.status === 'completed' ? 'done' : 'running'}">${g.status}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
-function updateTaskBannerStep(stepText, desc, percent) {
-  if (!activeTaskBanner) return;
-  bannerTaskStep.textContent = stepText;
-  bannerTaskDesc.textContent = desc;
-  bannerTaskFill.style.width = `${percent}%`;
+function renderActivityHtml() {
+  const list = state.activity || [];
+  if (list.length === 0) return '<div class="empty-state">No activity logged yet.</div>';
+  return `
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      ${list.map(item => `
+        <div style="padding:8px 10px; background:#151D2A; border-radius:8px; border:1px solid #202B3C; font-size:12px;">
+          <div style="font-weight:600; color:#fff; display:flex; justify-content:space-between;">
+            <span>${escapeHtml(item.title || item.type)}</span>
+            <span style="font-size:10px; color:#64748b;">${item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : ''}</span>
+          </div>
+          <div style="color:#9AA9BC; font-size:11px; margin-top:2px;">${escapeHtml(item.detail || '')}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
-function hideTaskProgressBanner() {
-  if (!activeTaskBanner) return;
-  bannerTaskFill.style.width = '100%';
-  setTimeout(() => {
-    activeTaskBanner.style.display = 'none';
-  }, 2000);
+function renderApprovalsHtml() {
+  if (pendingApprovals.size === 0) return '<div class="empty-state">🛡️ No pending approvals. Sentinel is active and guarding your actions.</div>';
+  return `
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      ${Array.from(pendingApprovals.values()).map(r => `
+        <div class="sentinel-approval-card" style="margin:0;">
+          <div class="sentinel-title">${escapeHtml(r.action)}</div>
+          <div class="sentinel-desc">${escapeHtml(r.reason || 'Authorization required')}</div>
+          <div class="sentinel-actions">
+            <button class="btn-reject" onclick="handleSentinelAction('${r.confirmId}', false); closeModal();">✕ Reject</button>
+            <button class="btn-approve" onclick="handleSentinelAction('${r.confirmId}', true); closeModal();">✓ Authorize</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
-// Configure Markdown Parser with Syntax Highlighting
-if (window.marked) {
-  try {
-    marked.setOptions({
-      gfm: true,
-      breaks: true
-    });
-  } catch (e) {
-    console.warn('Marked options error:', e);
+function renderMemoryHtml() {
+  const list = state.memories || [];
+  return `
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span style="font-size:12px; color:#9AA9BC;">Personal preferences remembered across sessions</span>
+        <button class="btn-task-action" onclick="handleAddMemoryPrompt()">+ Add Memory</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${list.map(m => `
+          <div class="resume-card" style="margin:0;">
+            <div>
+              <div style="font-weight:600; font-size:12px; color:#65C8E8;">${escapeHtml(m.key)}</div>
+              <div style="font-size:12px; color:#fff;">${escapeHtml(m.value)}</div>
+            </div>
+            <button style="background:none; border:none; color:#F16B77; cursor:pointer;" onclick="deleteMemoryItem('${m.id}')">🗑️</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+window.handleAddMemoryPrompt = function() {
+  const key = prompt('Memory Topic (e.g. Airline Preference, Coffee, Tone):');
+  if (!key) return;
+  const value = prompt(`Details for "${key}":`);
+  if (!value) return;
+  socket?.send(JSON.stringify({ type: 'add_memory', memory: { key, value, category: 'personal' } }));
+  state.memories.push({ id: `mem_${Date.now()}`, key, value, category: 'personal' });
+  openModal('🧠 Personal Memory & Preferences', renderMemoryHtml());
+};
+
+window.deleteMemoryItem = function(id) {
+  if (confirm('Delete this memory?')) {
+    socket?.send(JSON.stringify({ type: 'delete_memory', id }));
+    state.memories = state.memories.filter(m => m.id !== id);
+    openModal('🧠 Personal Memory & Preferences', renderMemoryHtml());
   }
+};
+
+function renderPersonaHtml() {
+  const p = state.persona || { name: 'Muse', tone: 'friendly', voice: 'natural', proactivity: 'high' };
+  return `
+    <form id="persona-form" onsubmit="event.preventDefault(); savePersonaSettings();">
+      <div class="persona-group">
+        <label class="persona-label">Companion Display Name</label>
+        <input type="text" id="persona-name-input" class="persona-input" value="${escapeHtml(p.name || 'Muse')}" />
+      </div>
+
+      <div class="persona-group">
+        <label class="persona-label">Personality & Communication Style</label>
+        <select id="persona-tone-input" class="persona-select">
+          <option value="friendly" ${p.tone === 'friendly' ? 'selected' : ''}>Warm & Friendly (Conversational, encouraging)</option>
+          <option value="professional" ${p.tone === 'professional' ? 'selected' : ''}>Professional & Concise (Executive, clear summaries)</option>
+          <option value="analytical" ${p.tone === 'analytical' ? 'selected' : ''}>Deep & Analytical (Technical, thorough research)</option>
+        </select>
+      </div>
+
+      <div class="persona-group">
+        <label class="persona-label">Proactivity Level</label>
+        <select id="persona-proactivity-input" class="persona-select">
+          <option value="high" ${p.proactivity === 'high' ? 'selected' : ''}>High (Offers ideas, tracks goals in background)</option>
+          <option value="balanced" ${p.proactivity === 'balanced' ? 'selected' : ''}>Balanced (Answers requests and proposes plans)</option>
+          <option value="reactive" ${p.proactivity === 'reactive' ? 'selected' : ''}>Reactive (Executes only when asked)</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn-save-persona">Save Preferences</button>
+    </form>
+  `;
 }
 
-function formatMarkdown(content) {
-  if (window.marked) {
-    try {
-      return marked.parse(content);
-    } catch (e) {
-      console.warn('Marked parse error:', e);
-    }
-  }
-  return escapeHtml(content)
-    .replace(/\n/g, '<br>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>');
-}
+window.savePersonaSettings = function() {
+  const name = document.getElementById('persona-name-input')?.value.trim() || 'Muse';
+  const tone = document.getElementById('persona-tone-input')?.value || 'friendly';
+  const proactivity = document.getElementById('persona-proactivity-input')?.value || 'high';
 
-// Append Chat Message Row with Rich Markdown & Copy Buttons
-function appendMessage(role, content) {
-  if (welcomeCard) welcomeCard.style.display = 'none';
-  if (quickChips) quickChips.style.display = 'none';
-
-  const row = document.createElement('div');
-  row.className = `msg-row ${role}`;
-
-  const icon = document.createElement('div');
-  icon.className = 'msg-avatar-icon';
-  icon.textContent = role === 'assistant' ? '✨' : '👤';
-
-  const bubbleWrapper = document.createElement('div');
-  bubbleWrapper.className = 'msg-bubble-wrapper';
-
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-
-  if (role === 'assistant') {
-    bubble.innerHTML = formatMarkdown(content);
-
-    // Enhance code blocks with language header and copy button
-    bubble.querySelectorAll('pre code').forEach((codeBlock) => {
-      const pre = codeBlock.parentElement;
-      const langClass = Array.from(codeBlock.classList).find(c => c.startsWith('language-'));
-      const lang = langClass ? langClass.replace('language-', '') : 'code';
-
-      const wrapper = document.createElement('div');
-      wrapper.className = 'code-block-wrapper';
-
-      const header = document.createElement('div');
-      header.className = 'code-header';
-      header.innerHTML = `
-        <span class="code-lang">${lang}</span>
-        <button class="code-copy-btn" title="Copy code snippet">📋 Copy</button>
-      `;
-
-      const copyBtn = header.querySelector('.code-copy-btn');
-      copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(codeBlock.innerText);
-        copyBtn.textContent = '✓ Copied';
-        setTimeout(() => copyBtn.textContent = '📋 Copy', 2000);
-      });
-
-      pre.parentNode.insertBefore(wrapper, pre);
-      wrapper.appendChild(header);
-      wrapper.appendChild(pre);
-
-      if (window.hljs) {
-        try {
-          hljs.highlightElement(codeBlock);
-        } catch {}
-      }
-    });
-
-    // Assistant Message Action Toolbar
-    const toolbar = document.createElement('div');
-    toolbar.className = 'msg-toolbar';
-    toolbar.innerHTML = `
-      <span class="msg-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-      <button class="msg-action-btn btn-copy-msg" title="Copy response">📋</button>
-      <button class="msg-action-btn btn-speak-msg" title="Read aloud">🔊</button>
-    `;
-
-    toolbar.querySelector('.btn-copy-msg').addEventListener('click', (e) => {
-      navigator.clipboard.writeText(content);
-      const btn = e.currentTarget;
-      btn.textContent = '✓';
-      setTimeout(() => btn.textContent = '📋', 1800);
-    });
-
-    toolbar.querySelector('.btn-speak-msg').addEventListener('click', () => {
-      speakText(content);
-    });
-
-    bubbleWrapper.appendChild(bubble);
-    bubbleWrapper.appendChild(toolbar);
-  } else {
-    bubble.textContent = content;
-    bubbleWrapper.appendChild(bubble);
-  }
-
-  row.appendChild(icon);
-  row.appendChild(bubbleWrapper);
-
-  streamList.appendChild(row);
-  timeline.scrollTop = timeline.scrollHeight;
-}
-
-// Quick Starter Chips
-document.querySelectorAll('.chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    userInput.value = chip.dataset.prompt;
-    chatForm.dispatchEvent(new Event('submit'));
-  });
-});
-
-// Chat Form Submit
-chatForm?.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const text = userInput.value.trim();
-  if (!text) return;
-
-  appendMessage('user', text);
-  userInput.value = '';
-  setAvatarState('thinking');
-  agentStatus.textContent = 'Working on your goal...';
-
-  showTaskProgressBanner(text, 'Starting autonomous loop...', 15, 1);
-
-  showSubView('browser');
-  const titleEl = document.getElementById('active-work-title');
-  if (titleEl) titleEl.textContent = text.length > 40 ? text.slice(0, 40) + '...' : text;
-  const statusPill = document.getElementById('active-work-status-pill');
-  if (statusPill) {
-    statusPill.textContent = 'Working';
-    statusPill.className = 'status-pill-pulse';
-  }
-  const btnTake = document.getElementById('btn-take-control');
-  if (btnTake) btnTake.style.display = 'none';
-  const btnPause = document.getElementById('btn-pause-task');
-  if (btnPause) btnPause.style.display = 'inline-flex';
+  state.persona = { ...state.persona, name, tone, proactivity };
+  if (personaNameDisplay) personaNameDisplay.textContent = name;
 
   socket?.send(JSON.stringify({
-    type: 'goal',
-    text
+    type: 'update_persona',
+    updates: state.persona
   }));
-});
 
-// Inline Sentinel Buttons
-btnApprove?.addEventListener('click', () => {
-  if (!pendingConfirmId) return;
-  window.handleSentinelAction(pendingConfirmId, true);
-});
+  closeModal();
+};
 
-btnReject?.addEventListener('click', () => {
-  if (!pendingConfirmId) return;
-  window.handleSentinelAction(pendingConfirmId, false);
-});
+function renderConnectionsHtml() {
+  const list = state.connections || [];
+  return `
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      ${list.map(c => `
+        <div class="resume-card" style="margin:0;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:18px;">${c.icon || '🔌'}</span>
+            <div>
+              <div style="font-weight:600; font-size:13px; color:#fff;">${escapeHtml(c.name)}</div>
+              <div style="font-size:11px; color:#9AA9BC;">${escapeHtml(c.detail || '')}</div>
+            </div>
+          </div>
+          <span class="milestone-badge ${c.status === 'Active' || c.status === 'Connected' ? 'done' : 'pending'}">${c.status}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 
-btnCloseSheet?.addEventListener('click', () => {
-  browserSheet.style.display = 'none';
-});
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
+// Start connection
 connect();

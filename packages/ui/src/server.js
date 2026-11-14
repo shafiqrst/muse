@@ -90,6 +90,8 @@ export class CompanionServer {
       goals: this.memoryStore.getGoals(),
       tasks: this.memoryStore.getTasks(),
       incompleteTasks: this.memoryStore.getIncompleteTasks(),
+      conversations: this.memoryStore.getConversations(),
+      persona: this.memoryStore.getPersona(),
       activity: this.recentActivity.slice(0, 20),
       approvals: Array.from(this.pendingConfirms.entries()).map(([id]) => id),
       connections: [
@@ -199,6 +201,17 @@ export class CompanionServer {
           } else if (msg.type === 'delete_memory') {
             this.memoryStore.deleteMemory(msg.id);
             this.broadcast({ type: 'memory_deleted', id: msg.id, memories: this.memoryStore.getMemories() });
+          } else if (msg.type === 'create_conversation') {
+            const conv = this.memoryStore.createConversation(msg);
+            this.broadcast({ type: 'conversation_created', conversation: conv, conversations: this.memoryStore.getConversations() });
+          } else if (msg.type === 'delete_conversation') {
+            this.memoryStore.deleteConversation(msg.id);
+            this.broadcast({ type: 'conversation_deleted', id: msg.id, conversations: this.memoryStore.getConversations() });
+          } else if (msg.type === 'save_conversation_messages') {
+            this.memoryStore.saveConversationMessages(msg.id, msg.messages);
+          } else if (msg.type === 'update_persona') {
+            const updated = this.memoryStore.updatePersona(msg.updates);
+            this.broadcast({ type: 'persona_updated', persona: updated });
           } else if (msg.type === 'refresh_state') {
             ws.send(JSON.stringify(this.getDashboardState()));
           }
