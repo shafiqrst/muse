@@ -1,10 +1,11 @@
-// Muse AI Desktop Chatbox Client - 7 Meta Muse Functional Areas
+// Muse AI Desktop Companion Client - Conversation-First + Expandable Workspace
+
 let socket = null;
-let currentMode = 'muse';
 let pendingConfirmId = null;
 let voiceEnabled = true;
 let isSpeaking = false;
 let mouthAnimationInterval = null;
+let currentTask = null;
 
 // Application State
 let state = {
@@ -17,6 +18,7 @@ let state = {
 const pendingApprovals = new Map();
 
 // DOM Elements
+const appShell = document.getElementById('app-shell');
 const avatarWrapper = document.getElementById('avatar-head-wrapper');
 const avatarSvg = document.getElementById('avatar-svg');
 const pupilLeft = document.getElementById('pupil-left');
@@ -29,8 +31,18 @@ const agentStatusPill = document.getElementById('agent-status-pill');
 const modelNameEl = document.getElementById('model-name');
 const approvalBadge = document.getElementById('approval-badge');
 
-const navTabs = document.querySelectorAll('.nav-tab');
-const tabViews = document.querySelectorAll('.tab-view');
+const btnExpandWorkspace = document.getElementById('btn-expand-workspace');
+const btnToggleDrawer = document.getElementById('btn-toggle-drawer');
+const btnCloseDrawer = document.getElementById('btn-close-drawer');
+const sideDrawer = document.getElementById('side-drawer');
+const drawerOverlay = document.getElementById('drawer-overlay');
+const drawerItems = document.querySelectorAll('.drawer-item');
+
+const activeTaskBanner = document.getElementById('active-task-banner');
+const bannerTaskTitle = document.getElementById('banner-task-title');
+const bannerTaskStep = document.getElementById('banner-task-step');
+const bannerTaskFill = document.getElementById('banner-task-fill');
+const bannerTaskDesc = document.getElementById('banner-task-desc');
 
 const timeline = document.getElementById('timeline');
 const streamList = document.getElementById('stream');
@@ -50,30 +62,64 @@ const btnCloseSheet = document.getElementById('btn-close-sheet');
 const sentinelCard = document.getElementById('sentinel-card');
 const sentinelTitle = document.getElementById('sentinel-action-title');
 const sentinelDesc = document.getElementById('sentinel-action-desc');
-const sentinelParams = document.getElementById('sentinel-params');
+const sentinelRiskPill = document.getElementById('sentinel-risk-pill');
+const sentinelDetailsGrid = document.getElementById('sentinel-details-grid');
 const btnApprove = document.getElementById('btn-sentinel-approve');
 const btnReject = document.getElementById('btn-sentinel-reject');
 
 // ==========================================
-// 1. Navigation & 7-Tab Switching
+// 1. Navigation & Expandable Workspace Deck
 // ==========================================
-navTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    const tabName = tab.dataset.tab;
-    switchTab(tabName);
+function toggleDrawer(open) {
+  const shouldOpen = open !== undefined ? open : !sideDrawer.classList.contains('open');
+  sideDrawer.classList.toggle('open', shouldOpen);
+  drawerOverlay.classList.toggle('open', shouldOpen);
+}
+
+btnToggleDrawer?.addEventListener('click', () => toggleDrawer(true));
+btnCloseDrawer?.addEventListener('click', () => toggleDrawer(false));
+drawerOverlay?.addEventListener('click', () => toggleDrawer(false));
+
+btnExpandWorkspace?.addEventListener('click', () => {
+  appShell.classList.toggle('expanded');
+  const isExpanded = appShell.classList.contains('expanded');
+  btnExpandWorkspace.classList.toggle('active', isExpanded);
+  if (isExpanded) {
+    showSubView('activity');
+  }
+});
+
+drawerItems.forEach(item => {
+  item.addEventListener('click', () => {
+    const viewName = item.dataset.view;
+    drawerItems.forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+
+    toggleDrawer(false);
+
+    if (viewName === 'chat') {
+      if (!btnExpandWorkspace.classList.contains('active')) {
+        appShell.classList.remove('expanded');
+      }
+    } else {
+      appShell.classList.add('expanded');
+      btnExpandWorkspace.classList.add('active');
+      showSubView(viewName);
+    }
   });
 });
 
-function switchTab(tabName) {
-  navTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
-  tabViews.forEach(v => {
-    v.classList.toggle('active', v.id === `view-${tabName}`);
-  });
-  if (tabName === 'goals') renderGoals();
-  else if (tabName === 'activity') renderActivity();
-  else if (tabName === 'approvals') renderApprovalsQueue();
-  else if (tabName === 'connections') renderConnections();
-  else if (tabName === 'memory') renderMemory();
+function showSubView(viewName) {
+  document.querySelectorAll('.sub-view').forEach(v => v.style.display = 'none');
+  const target = document.getElementById(`view-${viewName}`);
+  if (target) {
+    target.style.display = 'block';
+    if (viewName === 'goals') renderGoals();
+    else if (viewName === 'activity') renderActivity();
+    else if (viewName === 'approvals') renderApprovalsQueue();
+    else if (viewName === 'connections') renderConnections();
+    else if (viewName === 'memory') renderMemory();
+  }
 }
 
 function escapeHtml(str) {
@@ -86,12 +132,14 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// ---------------- Render Views ----------------
+// ==========================================
+// 2. Render Secondary Sub-Views
+// ==========================================
 function renderGoals() {
   const container = document.getElementById('goals-list');
   if (!container) return;
   if (!state.goals || state.goals.length === 0) {
-    container.innerHTML = '<div class="empty-state">No goals tracked yet. Type a goal in Chat to begin!</div>';
+    container.innerHTML = '<div class="empty-state">No goals tracked yet. Type a goal in chat to begin!</div>';
     return;
   }
   container.innerHTML = state.goals.map(g => {
@@ -131,8 +179,8 @@ function renderActivity() {
     return `
       <div class="activity-item">
         <span class="activity-icon">${icon}</span>
-        <div class="activity-content">
-          <div class="activity-title">${escapeHtml(item.title || item.type)} <span style="font-size:10px; color:#64748b; font-weight:normal; margin-left:6px;">${timeStr}</span></div>
+        <div style="flex:1;">
+          <div class="activity-title">${escapeHtml(item.title || item.type)} <span style="font-size:10px; color:#64748b; font-weight:normal; margin-left:4px;">${timeStr}</span></div>
           <div class="activity-detail">${escapeHtml(item.detail || '')}</div>
         </div>
       </div>
@@ -157,25 +205,42 @@ function renderApprovalsQueue() {
   const container = document.getElementById('approvals-queue');
   if (!container) return;
   if (pendingApprovals.size === 0) {
-    container.innerHTML = '<div class="empty-state">🛡️ No pending approvals. Your actions are safe and guarded.</div>';
+    container.innerHTML = '<div class="empty-state">🛡️ No pending approvals. Your actions are safe.</div>';
     return;
   }
   container.innerHTML = Array.from(pendingApprovals.values()).map(req => {
     return `
-      <div class="sentinel-card" style="margin: 0 0 10px 0;">
+      <div class="human-sentinel-card" style="margin: 0 0 10px 0;">
         <div class="sentinel-banner">
-          <span class="sentinel-tag">🛡️ SENTINEL GUARD APPROVAL REQUIRED</span>
+          <span class="sentinel-shield">🛡️</span>
+          <div>
+            <span class="sentinel-tag">AUTHORIZATION REQUIRED</span>
+            <span class="risk-pill">${escapeHtml(req.riskLevel || 'HIGH RISK')}</span>
+          </div>
         </div>
-        <div class="sentinel-action">${escapeHtml(req.action)}</div>
-        <div class="sentinel-desc">${escapeHtml(req.reason || 'Authorization required for this outbound request.')}</div>
-        <pre class="sentinel-params">${escapeHtml(JSON.stringify(req.params || {}, null, 2))}</pre>
+        <div class="sentinel-action-title">${escapeHtml(req.action)}</div>
+        <p class="sentinel-action-desc">${escapeHtml(req.reason || 'Authorization required for outbound request.')}</p>
+        <div class="sentinel-details-grid">
+          ${renderHumanDetails(req.params)}
+        </div>
         <div class="sentinel-actions">
-          <button class="btn-reject" onclick="handleSentinelAction('${req.confirmId}', false)">❌ Reject Action</button>
-          <button class="btn-approve" onclick="handleSentinelAction('${req.confirmId}', true)">✅ Authorize</button>
+          <button class="btn-reject" onclick="handleSentinelAction('${req.confirmId}', false)">✕ Reject</button>
+          <button class="btn-approve" onclick="handleSentinelAction('${req.confirmId}', true)">✓ Authorize</button>
         </div>
       </div>
     `;
   }).join('');
+}
+
+function renderHumanDetails(params = {}) {
+  const entries = Object.entries(params);
+  if (entries.length === 0) return '<div class="detail-row"><span class="detail-val">Standard parameters</span></div>';
+  return entries.map(([key, val]) => `
+    <div class="detail-row">
+      <span class="detail-label">${escapeHtml(key)}:</span>
+      <span class="detail-val">${escapeHtml(typeof val === 'object' ? JSON.stringify(val) : String(val))}</span>
+    </div>
+  `).join('');
 }
 
 window.handleSentinelAction = function(confirmId, approved) {
@@ -235,7 +300,7 @@ window.handleDeleteMemory = function(id) {
 const btnAddMemory = document.getElementById('btn-add-memory');
 if (btnAddMemory) {
   btnAddMemory.addEventListener('click', () => {
-    const key = prompt('Enter memory key / topic (e.g. "Coffee Preference", "Preferred Airline"):');
+    const key = prompt('Enter memory topic (e.g. "Coffee Preference", "Preferred Airline"):');
     if (!key) return;
     const value = prompt(`Enter details for "${key}":`);
     if (!value) return;
@@ -246,16 +311,8 @@ if (btnAddMemory) {
   });
 }
 
-const settingModel = document.getElementById('setting-model');
-if (settingModel) {
-  settingModel.addEventListener('change', (e) => {
-    const chosen = e.target.options[e.target.selectedIndex].text.split(' ')[0] + ' ' + (e.target.options[e.target.selectedIndex].text.split(' ')[1] || '');
-    if (modelNameEl) modelNameEl.textContent = chosen;
-  });
-}
-
 // ==========================================
-// 2. Avatar Eye Tracking & Blinking in Header
+// 3. Subtle Living Avatar & Blinking
 // ==========================================
 const BASE_PUPIL_LEFT = { x: 36, y: 44 };
 const BASE_PUPIL_RIGHT = { x: 64, y: 44 };
@@ -296,11 +353,11 @@ function blink() {
 setTimeout(blink, 2000);
 
 // Avatar States
-function setAvatarState(avatarState) {
+function setAvatarState(stateKey) {
   if (!avatarWrapper) return;
   avatarWrapper.classList.remove('thinking', 'speaking', 'sentinel');
 
-  switch (avatarState) {
+  switch (stateKey) {
     case 'thinking':
       avatarWrapper.classList.add('thinking');
       agentStatusPill.textContent = 'Thinking';
@@ -314,24 +371,24 @@ function setAvatarState(avatarState) {
     case 'speaking':
       avatarWrapper.classList.add('speaking');
       agentStatusPill.textContent = 'Speaking';
-      agentStatusPill.style.color = '#38bdf8';
-      agentStatusPill.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+      agentStatusPill.style.color = '#54C8E8';
+      agentStatusPill.style.borderColor = 'rgba(84, 200, 232, 0.4)';
       startMouthMorph();
       break;
 
     case 'sentinel':
       avatarWrapper.classList.add('sentinel');
       agentStatusPill.textContent = 'Review Required';
-      agentStatusPill.style.color = '#f59e0b';
-      agentStatusPill.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      agentStatusPill.style.color = '#F2B84B';
+      agentStatusPill.style.borderColor = 'rgba(242, 184, 75, 0.4)';
       stopMouthMorph();
       break;
 
     case 'idle':
     default:
-      agentStatusPill.textContent = 'Active';
-      agentStatusPill.style.color = '#34d399';
-      agentStatusPill.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+      agentStatusPill.textContent = 'Ready';
+      agentStatusPill.style.color = '#32C98B';
+      agentStatusPill.style.borderColor = 'rgba(50, 201, 139, 0.3)';
       pupilLeft.setAttribute('cy', BASE_PUPIL_LEFT.y);
       pupilRight.setAttribute('cy', BASE_PUPIL_RIGHT.y);
       stopMouthMorph();
@@ -366,7 +423,7 @@ function stopMouthMorph() {
 }
 
 // ==========================================
-// 3. Text-to-Speech (TTS) Voice Engine
+// 4. Voice Audio (TTS & STT)
 // ==========================================
 function speakText(text) {
   if (!voiceEnabled || !('speechSynthesis' in window)) return;
@@ -406,9 +463,6 @@ btnVoiceToggle?.addEventListener('click', () => {
   }
 });
 
-// ==========================================
-// 4. Speech-to-Text (Voice Mic Dictation)
-// ==========================================
 let recognition = null;
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -432,7 +486,7 @@ if (SpeechRecognition) {
 
   recognition.onerror = recognition.onend = () => {
     btnMic.classList.remove('listening');
-    agentStatus.textContent = 'Ready to assist';
+    agentStatus.textContent = 'Your personal companion';
   };
 
   btnMic?.addEventListener('click', () => {
@@ -447,14 +501,14 @@ if (SpeechRecognition) {
 }
 
 // ==========================================
-// 5. WebSocket Realtime Communication
+// 5. WebSocket & Real-Time Task Execution
 // ==========================================
 function connect() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   socket = new WebSocket(`${protocol}//${window.location.host}`);
 
   socket.onopen = () => {
-    agentStatus.textContent = 'Connected & ready';
+    agentStatus.textContent = 'Your personal companion';
   };
 
   socket.onmessage = (event) => {
@@ -506,33 +560,28 @@ function handleServerEvent(data) {
       if (data.goal) {
         state.goals = [data.goal, ...(state.goals || [])];
         renderGoals();
+        showTaskProgressBanner(data.goal.title, 'Planning execution', 20, 1);
       }
-      break;
-
-    case 'memory_added':
-      state.memories = data.memories || state.memories;
-      renderMemory();
-      break;
-
-    case 'memory_deleted':
-      state.memories = data.memories || state.memories;
-      renderMemory();
       break;
 
     case 'thinking':
       setAvatarState('thinking');
       agentStatus.textContent = `Analyzing: Step ${data.step}...`;
+      updateTaskBannerStep(`Step ${data.step}`, `Formulating plan and next tool...`, Math.min(85, (data.step || 1) * 25));
       break;
 
     case 'tool_call':
       setAvatarState('thinking');
-      agentStatus.textContent = `Browsing: ${data.name}...`;
+      agentStatus.textContent = `Executing: ${data.name}...`;
 
       if (data.name === 'browser_navigate' && data.args?.url) {
         browserSheet.style.display = 'block';
         sheetUrl.textContent = data.args.url;
         sheetTitle.textContent = `Opening ${data.args.url}...`;
-        sheetSummary.textContent = 'Navigating in sandbox browser...';
+        sheetSummary.textContent = 'Navigating in isolated browser sandbox...';
+        updateTaskBannerStep('Browser Action', `Navigating to ${data.args.url}`, 60);
+      } else if (data.name === 'browser_search') {
+        updateTaskBannerStep('Web Search', `Searching for: "${data.args.query}"`, 50);
       }
       break;
 
@@ -541,7 +590,7 @@ function handleServerEvent(data) {
         sheetTitle.textContent = data.result.title;
         sheetSummary.textContent = `Loaded ${data.result.url}`;
       } else if (data.name === 'browser_extract' && data.result?.text) {
-        sheetSummary.textContent = data.result.text.slice(0, 150) + '...';
+        sheetSummary.textContent = data.result.text.slice(0, 140) + '...';
       }
       break;
 
@@ -549,29 +598,61 @@ function handleServerEvent(data) {
       setAvatarState('sentinel');
       pendingConfirmId = data.confirmId;
       pendingApprovals.set(data.confirmId, data);
+      
+      // Populate Human-Readable Card
       sentinelTitle.textContent = data.action;
       sentinelDesc.textContent = data.reason || 'Authorization required for this outbound request.';
-      sentinelParams.textContent = JSON.stringify(data.params || {}, null, 2);
+      sentinelRiskPill.textContent = data.riskLevel || 'HIGH RISK';
+      sentinelDetailsGrid.innerHTML = renderHumanDetails(data.params);
       sentinelCard.style.display = 'block';
+      
       updateApprovalBadge();
+      updateTaskBannerStep('Approval Required', 'Waiting for your sign-off...', 80);
       break;
 
     case 'complete':
       setAvatarState('idle');
       agentStatus.textContent = 'Goal accomplished';
+      hideTaskProgressBanner();
       appendMessage('assistant', data.result || 'Task completed.');
       if (data.result) speakText(data.result);
       break;
 
     case 'error':
       setAvatarState('idle');
-      agentStatus.textContent = 'Action failed';
+      agentStatus.textContent = 'Ready';
+      hideTaskProgressBanner();
       appendMessage('assistant', `❌ Error: ${data.message}`);
       break;
   }
 }
 
-// Append Chat Message Row with Avatar Icon
+// Task Progress Banner Helpers
+function showTaskProgressBanner(title, desc, percent, stepNum) {
+  if (!activeTaskBanner) return;
+  activeTaskBanner.style.display = 'block';
+  bannerTaskTitle.textContent = title;
+  bannerTaskDesc.textContent = desc;
+  bannerTaskFill.style.width = `${percent}%`;
+  bannerTaskStep.textContent = `Step ${stepNum || 1}`;
+}
+
+function updateTaskBannerStep(stepText, desc, percent) {
+  if (!activeTaskBanner) return;
+  bannerTaskStep.textContent = stepText;
+  bannerTaskDesc.textContent = desc;
+  bannerTaskFill.style.width = `${percent}%`;
+}
+
+function hideTaskProgressBanner() {
+  if (!activeTaskBanner) return;
+  bannerTaskFill.style.width = '100%';
+  setTimeout(() => {
+    activeTaskBanner.style.display = 'none';
+  }, 2000);
+}
+
+// Append Chat Message Row
 function appendMessage(role, content) {
   if (welcomeCard) welcomeCard.style.display = 'none';
   if (quickChips) quickChips.style.display = 'none';
@@ -594,7 +675,7 @@ function appendMessage(role, content) {
   timeline.scrollTop = timeline.scrollHeight;
 }
 
-// Quick Chips
+// Quick Starter Chips
 document.querySelectorAll('.chip').forEach(chip => {
   chip.addEventListener('click', () => {
     userInput.value = chip.dataset.prompt;
@@ -613,14 +694,15 @@ chatForm?.addEventListener('submit', (e) => {
   setAvatarState('thinking');
   agentStatus.textContent = 'Working on your goal...';
 
+  showTaskProgressBanner(text, 'Starting autonomous loop...', 15, 1);
+
   socket?.send(JSON.stringify({
     type: 'goal',
-    mode: currentMode,
     text
   }));
 });
 
-// Inline Sentinel Buttons in Chat
+// Inline Sentinel Buttons
 btnApprove?.addEventListener('click', () => {
   if (!pendingConfirmId) return;
   window.handleSentinelAction(pendingConfirmId, true);

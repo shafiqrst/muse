@@ -5,7 +5,8 @@ import fs from 'fs';
 export class BrowserSandbox {
   constructor(options = {}) {
     this.workspaceRoot = options.workspaceRoot || process.cwd();
-    this.userDataDir = options.userDataDir || path.join(this.workspaceRoot, '.mose', 'browser_profile');
+    // Isolated agent browser profile to prevent cross-contamination with personal logins
+    this.userDataDir = options.userDataDir || path.join(this.workspaceRoot, '.mose', 'isolated_agent_profile');
     this.headless = options.headless ?? true;
     this.browserContext = null;
     this.page = null;

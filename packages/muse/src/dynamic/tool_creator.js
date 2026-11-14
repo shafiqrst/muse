@@ -5,6 +5,15 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+// Dangerous patterns that generated dynamic tools MUST NOT contain
+const FORBIDDEN_PATTERNS = [
+  /rm\s+-rf/i,
+  /format\s+[a-z]:/i,
+  /process\.env\.[A-Z0-9_]*(KEY|SECRET|TOKEN|AUTH|PASS)/i,
+  /fs\.unlinkSync\(.*(\.env|credentials|id_rsa)/i,
+  /child_process.*(bash|powershell|cmd\.exe).*(del|rm|erase)/i
+];
+
 export class ToolCreator {
   constructor(options = {}) {
     this.workspaceRoot = options.workspaceRoot || process.cwd();
@@ -12,13 +21,33 @@ export class ToolCreator {
     if (!fs.existsSync(this.toolsDir)) fs.mkdirSync(this.toolsDir, { recursive: true });
   }
 
+  validateSafety(scriptContent) {
+    for (const pattern of FORBIDDEN_PATTERNS) {
+      if (pattern.test(scriptContent)) {
+        return {
+          safe: false,
+          reason: `Security violation: Script contains prohibited pattern '${pattern.toString()}'`
+        };
+      }
+    }
+    return { safe: true };
+  }
+
   async createTool({ toolName, scriptContent, description, runtime = 'node' }) {
     const cleanName = toolName.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
     const ext = runtime === 'python' ? '.py' : '.js';
     const filePath = path.join(this.toolsDir, `${cleanName}${ext}`);
 
+    // 1. Static Security Inspection
+    const safetyCheck = this.validateSafety(scriptContent);
+    if (!safetyCheck.safe) {
+      return { success: false, error: safetyCheck.reason };
+    }
+
+    // 2. Write Script
     fs.writeFileSync(filePath, scriptContent, 'utf8');
 
+    // 3. Syntax Validation
     try {
       const testCmd = runtime === 'python'
         ? `python -m py_compile "${filePath}"`
@@ -55,8 +84,15 @@ export class ToolCreator {
       ? `python "${meta.filePath}" --b64 ${b64}`
       : `node "${meta.filePath}" --b64 ${b64}`;
 
-    const env = { ...process.env, MOSE_TOOL_ARGS: serialized };
-    const { stdout, stderr } = await execAsync(cmd, { env, timeout: 30000 });
+    // Scrub API keys from subprocess environment to prevent credential exfiltration
+    const sanitizedEnv = { ...process.env };
+    delete sanitizedEnv.GEMINI_API_KEY;
+    delete sanitizedEnv.GROQ_API_KEY;
+    delete sanitizedEnv.OPENROUTER_API_KEY;
+    delete sanitizedEnv.NVIDIA_API_KEY;
+    sanitizedEnv.MOSE_TOOL_ARGS = serialized;
+
+    const { stdout, stderr } = await execAsync(cmd, { env: sanitizedEnv, timeout: 30000 });
     return { output: stdout.trim(), error: stderr.trim() || null };
   }
 }

@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Muse • Autonomous Personal AI Agent</title>
+  <title>Muse • Autonomous Personal AI Companion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="chatbox-shell">
+  <div class="chatbox-shell" id="app-shell">
     
-    <!-- Header with Living Mini Avatar & Mode Switcher -->
-    <header class="chatbox-header">
-      <div class="header-avatar-section">
-        <!-- Interactive Living Mini Avatar -->
-        <div class="avatar-head-wrapper" id="avatar-head-wrapper">
+    <!-- Refined Companion Header -->
+    <header class="companion-header">
+      <div class="header-left">
+        <!-- Subtle Living Mini Avatar (34px) -->
+        <div class="avatar-head-wrapper" id="avatar-head-wrapper" title="Muse Persona">
           <div class="avatar-halo" id="avatar-halo"></div>
           <svg viewBox="0 0 100 100" class="mini-avatar-svg" id="avatar-svg">
             <defs>
@@ -29,7 +29,7 @@
             <circle cx="50" cy="50" r="42" fill="url(#skinGrad)"/>
             <circle cx="50" cy="50" r="37" fill="#0f172a"/>
             
-            <!-- Eyes -->
+            <!-- Eyes with mouse-tracking pupils -->
             <ellipse cx="36" cy="44" rx="7" ry="8" fill="#ffffff"/>
             <circle id="pupil-left" cx="36" cy="44" r="4" fill="#0284c7"/>
             <path id="eyelid-left" d="M 28 36 Q 36 36 44 36 L 44 36 Q 36 36 28 36 Z" fill="#0f172a"/>
@@ -38,203 +38,286 @@
             <circle id="pupil-right" cx="64" cy="44" r="4" fill="#0284c7"/>
             <path id="eyelid-right" d="M 56 36 Q 64 36 72 36 L 72 36 Q 64 36 56 36 Z" fill="#0f172a"/>
 
-            <!-- Mouth -->
+            <!-- Natural Lip-Sync Mouth -->
             <path id="avatar-mouth" d="M 40 68 Q 50 75 60 68" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" fill="none"/>
           </svg>
           <span class="avatar-online-dot"></span>
         </div>
 
-        <div class="header-info">
-          <div class="header-title-row">
-            <span class="chatbox-title">Muse Agent</span>
-            <span class="status-pill" id="agent-status-pill">Active</span>
+        <div class="header-titles">
+          <div class="title-row">
+            <span class="app-brand">Muse</span>
+            <span class="agent-state-pill" id="agent-status-pill">Ready</span>
           </div>
-          <div class="agent-activity" id="agent-status">Ready to assist</div>
+          <div class="agent-activity-subtext" id="agent-status">Your personal companion</div>
         </div>
       </div>
 
-      <!-- Controls -->
-      <div class="header-controls">
-        <button class="icon-toggle-btn active" id="btn-voice-toggle" title="Toggle Voice Response">
+      <!-- Controls & Actions -->
+      <div class="header-right">
+        <!-- Voice Toggle -->
+        <button class="header-icon-btn active" id="btn-voice-toggle" title="Toggle Voice Response">
           <span class="voice-wave">
             <span></span><span></span><span></span>
           </span>
         </button>
-        <div class="model-badge" id="active-model-badge">
+
+        <!-- Model Status Pill -->
+        <div class="model-pill" id="active-model-badge" title="Active Reasoning Engine">
           <span class="pulse-dot"></span>
           <span id="model-name">Gemini Flash</span>
         </div>
+
+        <!-- 1-Click Expand / Collapse Workspace Toggle -->
+        <button class="header-icon-btn" id="btn-expand-workspace" title="Toggle Expandable Workspace (440px ⟷ 840px)">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+          </svg>
+        </button>
+
+        <!-- Drawer Menu Button -->
+        <button class="header-icon-btn" id="btn-toggle-drawer" title="Open Navigation Menu">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
       </div>
     </header>
 
-    <!-- Meta Muse 7 Core UI Navigation Bar -->
-    <nav class="muse-nav-bar">
-      <button class="nav-tab active" data-tab="chat">💬 Chat</button>
-      <button class="nav-tab" data-tab="goals">🎯 Goals</button>
-      <button class="nav-tab" data-tab="activity">⚡ Activity</button>
-      <button class="nav-tab" data-tab="approvals">
-        🛡️ Approvals <span class="tab-badge" id="approval-badge" style="display: none;">0</span>
-      </button>
-      <button class="nav-tab" data-tab="connections">🔌 Apps</button>
-      <button class="nav-tab" data-tab="memory">🧠 Memory</button>
-      <button class="nav-tab" data-tab="settings">⚙️ Settings</button>
-    </nav>
+    <!-- Slide-Out Secondary Navigation Drawer -->
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+    <aside class="side-drawer" id="side-drawer">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <span>Navigation</span>
+          <span class="drawer-badge">v2.0</span>
+        </div>
+        <button class="drawer-close" id="btn-close-drawer">✕</button>
+      </div>
+      <nav class="drawer-nav">
+        <button class="drawer-item active" data-view="chat">
+          <span class="drawer-icon">💬</span>
+          <span class="drawer-label">Chat & Conversation</span>
+        </button>
+        <button class="drawer-item" data-view="goals">
+          <span class="drawer-icon">🎯</span>
+          <span class="drawer-label">Tasks & Goals</span>
+        </button>
+        <button class="drawer-item" data-view="activity">
+          <span class="drawer-icon">⚡</span>
+          <span class="drawer-label">Activity & Audit Log</span>
+        </button>
+        <button class="drawer-item" data-view="approvals">
+          <span class="drawer-icon">🛡️</span>
+          <span class="drawer-label">Sentinel Approvals</span>
+          <span class="tab-badge" id="approval-badge" style="display: none;">0</span>
+        </button>
+        <button class="drawer-item" data-view="connections">
+          <span class="drawer-icon">🔌</span>
+          <span class="drawer-label">Connected Apps</span>
+        </button>
+        <button class="drawer-item" data-view="memory">
+          <span class="drawer-icon">🧠</span>
+          <span class="drawer-label">Personal Memory</span>
+        </button>
+        <button class="drawer-item" data-view="settings">
+          <span class="drawer-icon">⚙️</span>
+          <span class="drawer-label">Settings & Controls</span>
+        </button>
+      </nav>
+      <div class="drawer-footer">
+        <div class="privacy-note">
+          🔒 100% Private Sandbox • Runs on your machine
+        </div>
+      </div>
+    </aside>
 
-    <!-- VIEW 1: CHAT / HOME -->
-    <div class="tab-view active" id="view-chat">
-      <!-- Live Browser Sheet (Collapsible) -->
-      <div class="browser-preview-sheet" id="browser-sheet" style="display: none;">
-        <div class="sheet-header">
-          <div class="browser-traffic-lights">
-            <span class="tl red"></span>
-            <span class="tl yellow"></span>
-            <span class="tl green"></span>
+    <!-- Main Body Workspace -->
+    <div class="workspace-body">
+      
+      <!-- Primary Pane: Conversational Stream -->
+      <section class="conversation-pane" id="conversation-pane">
+        
+        <!-- Live Task Progress Banner (Appears dynamically during execution) -->
+        <div class="active-task-banner" id="active-task-banner" style="display: none;">
+          <div class="task-banner-header">
+            <div class="task-banner-title">
+              <span class="spinner-dot"></span>
+              <span id="banner-task-title">Working on your goal...</span>
+            </div>
+            <span class="task-banner-step" id="banner-task-step">Step 1</span>
           </div>
-          <div class="sheet-url-bar" id="sheet-url">https://...</div>
-          <button class="sheet-close" id="btn-close-sheet">✕</button>
-        </div>
-        <div class="sheet-body">
-          <div class="page-title" id="sheet-title">Opening website...</div>
-          <div class="page-summary" id="sheet-summary">Inspecting in background browser sandbox...</div>
-        </div>
-      </div>
-
-      <!-- Sentinel Authorization Card -->
-      <div class="sentinel-card" id="sentinel-card" style="display: none;">
-        <div class="sentinel-banner">
-          <span class="shield-icon">🛡️</span>
-          <span class="sentinel-tag">SENTINEL AUTHORIZATION</span>
-        </div>
-        <div class="sentinel-body">
-          <div class="sentinel-action" id="sentinel-action-title">Action Intercepted</div>
-          <div class="sentinel-desc" id="sentinel-action-desc">Authorize this outbound request?</div>
-          <pre class="sentinel-params" id="sentinel-params"></pre>
-        </div>
-        <div class="sentinel-actions">
-          <button class="btn-reject" id="btn-sentinel-reject">✕ Reject</button>
-          <button class="btn-approve" id="btn-sentinel-approve">✓ Authorize Action</button>
-        </div>
-      </div>
-
-      <!-- Messages Timeline -->
-      <main class="chatbox-messages" id="timeline">
-        <div class="chat-welcome-card" id="welcome-card">
-          <div class="welcome-icon">✨</div>
-          <h3>Welcome to Muse AI</h3>
-          <p>An autonomous personal agent that acts inside a browser sandbox, learns your habits, and accomplishes real-world goals.</p>
-        </div>
-
-        <div class="quick-chips-wrapper" id="quick-chips">
-          <div class="chip" data-prompt="Search for the top 3 best flight deals to Tokyo under $600">✈️ Flight deals to Tokyo</div>
-          <div class="chip" data-prompt="Check news.ycombinator.com and summarize the top AI story">📰 Top AI headlines</div>
-          <div class="chip" data-prompt="Compare iPad Air prices across major retailers">🛒 Compare iPad prices</div>
-          <div class="chip" data-prompt="Help me plan a 3-day health & workout routine">💪 3-day health routine</div>
-        </div>
-
-        <div class="conversation-stream" id="stream"></div>
-      </main>
-
-      <!-- Bottom Chat Input -->
-      <footer class="chatbox-footer">
-        <form class="input-form" id="chat-form">
-          <button type="button" class="mic-btn" id="btn-mic" title="Speak to Muse">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-            </svg>
-          </button>
-          <input type="text" id="user-input" class="chat-input" placeholder="Give Muse a goal or task..." autocomplete="off"/>
-          <button type="submit" class="send-btn" id="send-btn" title="Send message">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="19" x2="12" y2="5"></line>
-              <polyline points="5 12 12 5 19 12"></polyline>
-            </svg>
-          </button>
-        </form>
-      </footer>
-    </div>
-
-    <!-- VIEW 2: TASKS & GOALS -->
-    <div class="tab-view" id="view-goals">
-      <div class="section-header">
-        <h3>🎯 Active & Ongoing Goals</h3>
-        <p>Muse continues background tasks even when you are offline.</p>
-      </div>
-      <div class="cards-list" id="goals-list"></div>
-    </div>
-
-    <!-- VIEW 3: ACTIVITY -->
-    <div class="tab-view" id="view-activity">
-      <div class="section-header">
-        <h3>⚡ Real-Time Activity Trail</h3>
-        <p>Full audit visibility into what Muse is browsing and executing.</p>
-      </div>
-      <div class="activity-feed" id="activity-feed"></div>
-    </div>
-
-    <!-- VIEW 4: APPROVALS (SENTINEL) -->
-    <div class="tab-view" id="view-approvals">
-      <div class="section-header">
-        <h3>🛡️ Sentinel Approvals Queue</h3>
-        <p>Sensitive actions requiring your sign-off before leaving the VM.</p>
-      </div>
-      <div class="cards-list" id="approvals-queue">
-        <div class="empty-state">No pending approvals. Your actions are safe.</div>
-      </div>
-    </div>
-
-    <!-- VIEW 5: CONNECTIONS (APPS) -->
-    <div class="tab-view" id="view-connections">
-      <div class="section-header">
-        <h3>🔌 Connected Apps & Services</h3>
-        <p>External services Muse is authorized to interact with.</p>
-      </div>
-      <div class="cards-list" id="connections-list"></div>
-    </div>
-
-    <!-- VIEW 6: MEMORY -->
-    <div class="tab-view" id="view-memory">
-      <div class="section-header">
-        <div class="header-split">
-          <div>
-            <h3>🧠 Personal Memory</h3>
-            <p>Preferences and context remembered across sessions.</p>
+          <div class="task-banner-progress">
+            <div class="task-banner-fill" id="banner-task-fill" style="width: 25%;"></div>
           </div>
-          <button class="btn-small-add" id="btn-add-memory">+ Add</button>
+          <div class="task-banner-subtext" id="banner-task-desc">Perceiving request and planning next action...</div>
         </div>
-      </div>
-      <div class="cards-list" id="memory-list"></div>
-    </div>
 
-    <!-- VIEW 7: SETTINGS -->
-    <div class="tab-view" id="view-settings">
-      <div class="section-header">
-        <h3>⚙️ Agent Settings & Controls</h3>
-        <p>Configure model priorities, security levels, and voice options.</p>
-      </div>
-      <div class="settings-group">
-        <label>Primary AI Model</label>
-        <select class="settings-select" id="setting-model">
-          <option value="gemini">Google Gemini 2.0 Flash (Recommended)</option>
-          <option value="groq">Groq (Ultra-fast Qwen & Llama)</option>
-          <option value="openrouter">OpenRouter Free Tier</option>
-          <option value="ollama">Local Ollama (100% Offline)</option>
-        </select>
-      </div>
-      <div class="settings-group">
-        <label>Sentinel Security Guard</label>
-        <select class="settings-select" id="setting-security">
-          <option value="strict">Strict (Approve all emails & purchases)</option>
-          <option value="moderate">Moderate (Approve financial only)</option>
-        </select>
-      </div>
-      <div class="settings-group">
-        <label>Persistent Browser Sandbox</label>
-        <div class="settings-toggle-row">
-          <span>Keep session cookies & logins</span>
-          <input type="checkbox" checked disabled/>
+        <!-- Inline Live Browser Preview Sheet (Collapsible) -->
+        <div class="browser-preview-sheet" id="browser-sheet" style="display: none;">
+          <div class="sheet-header">
+            <div class="browser-traffic-lights">
+              <span class="tl red"></span>
+              <span class="tl yellow"></span>
+              <span class="tl green"></span>
+            </div>
+            <div class="sheet-url-bar" id="sheet-url">https://...</div>
+            <button class="sheet-close" id="btn-close-sheet">✕</button>
+          </div>
+          <div class="sheet-body">
+            <div class="page-title" id="sheet-title">Opening website...</div>
+            <div class="page-summary" id="sheet-summary">Inspecting in isolated browser sandbox...</div>
+          </div>
         </div>
-      </div>
+
+        <!-- Inline Human-Readable Sentinel Authorization Card -->
+        <div class="human-sentinel-card" id="sentinel-card" style="display: none;">
+          <div class="sentinel-banner">
+            <span class="sentinel-shield">🛡️</span>
+            <div>
+              <span class="sentinel-tag">SENTINEL GUARD APPROVAL REQUIRED</span>
+              <span class="risk-pill" id="sentinel-risk-pill">HIGH RISK</span>
+            </div>
+          </div>
+          <div class="sentinel-action-title" id="sentinel-action-title">Action Title</div>
+          <p class="sentinel-action-desc" id="sentinel-action-desc">Muse is attempting an external operation that requires your authorization.</p>
+          
+          <div class="sentinel-details-grid" id="sentinel-details-grid">
+            <!-- Dynamically populated human readable rows -->
+          </div>
+
+          <div class="sentinel-actions">
+            <button class="btn-reject" id="btn-sentinel-reject">✕ Reject Action</button>
+            <button class="btn-approve" id="btn-sentinel-approve">✓ Authorize Action</button>
+          </div>
+        </div>
+
+        <!-- Scrollable Messages Timeline -->
+        <main class="chatbox-messages" id="timeline">
+          <div class="chat-welcome-card" id="welcome-card">
+            <div class="welcome-icon">✨</div>
+            <h3>Good morning! What can I take care of?</h3>
+            <p>I can browse the web, compare prices, manage tasks, and run long-term goals in the background.</p>
+          </div>
+
+          <div class="quick-chips-wrapper" id="quick-chips">
+            <button class="chip" data-prompt="Find the top 3 best flight deals to Tokyo under $600">✈️ Flight deals to Tokyo</button>
+            <button class="chip" data-prompt="Check news.ycombinator.com and summarize the top AI story">📰 Top AI headlines</button>
+            <button class="chip" data-prompt="Compare iPad Air prices across major retailers">🛒 Compare iPad prices</button>
+            <button class="chip" data-prompt="Help me organize a 3-day health and fitness routine">💪 Health & fitness plan</button>
+          </div>
+
+          <div class="conversation-stream" id="stream"></div>
+        </main>
+
+        <!-- Bottom Input Composer -->
+        <footer class="chatbox-footer">
+          <form class="input-form" id="chat-form">
+            <button type="button" class="mic-btn" id="btn-mic" title="Voice Dictation">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+            </button>
+            <input type="text" id="user-input" class="chat-input" placeholder="Tell Muse what you need done..." autocomplete="off"/>
+            <button type="submit" class="send-btn" id="send-btn" title="Send message">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="19" x2="12" y2="5"></line>
+                <polyline points="5 12 12 5 19 12"></polyline>
+              </svg>
+            </button>
+          </form>
+        </footer>
+      </section>
+
+      <!-- Secondary Expandable Deck / Inspection Deck (Visible in expanded mode or view switch) -->
+      <section class="inspection-pane" id="inspection-pane">
+        
+        <!-- View: Goals -->
+        <div class="sub-view" id="view-goals" style="display: none;">
+          <div class="sub-header">
+            <h3>🎯 Goals & Ongoing Projects</h3>
+            <p>Autonomous goals running in background.</p>
+          </div>
+          <div class="cards-list" id="goals-list"></div>
+        </div>
+
+        <!-- View: Activity -->
+        <div class="sub-view" id="view-activity" style="display: none;">
+          <div class="sub-header">
+            <h3>⚡ Real-Time Activity & Audit Log</h3>
+            <p>Chronological execution trail of browser and tools.</p>
+          </div>
+          <div class="activity-feed" id="activity-feed"></div>
+        </div>
+
+        <!-- View: Approvals Queue -->
+        <div class="sub-view" id="view-approvals" style="display: none;">
+          <div class="sub-header">
+            <h3>🛡️ Sentinel Approvals Queue</h3>
+            <p>Sensitive actions requiring your sign-off.</p>
+          </div>
+          <div class="cards-list" id="approvals-queue">
+            <div class="empty-state">No pending approvals. Your actions are safe.</div>
+          </div>
+        </div>
+
+        <!-- View: Connections -->
+        <div class="sub-view" id="view-connections" style="display: none;">
+          <div class="sub-header">
+            <h3>🔌 Connected Apps & Sandbox</h3>
+            <p>Active models and browser sandbox status.</p>
+          </div>
+          <div class="cards-list" id="connections-list"></div>
+        </div>
+
+        <!-- View: Memory -->
+        <div class="sub-view" id="view-memory" style="display: none;">
+          <div class="sub-header header-split">
+            <div>
+              <h3>🧠 Personal Memory</h3>
+              <p>Preferences learned across conversations.</p>
+            </div>
+            <button class="btn-small-add" id="btn-add-memory">+ Add</button>
+          </div>
+          <div class="cards-list" id="memory-list"></div>
+        </div>
+
+        <!-- View: Settings -->
+        <div class="sub-view" id="view-settings" style="display: none;">
+          <div class="sub-header">
+            <h3>⚙️ Settings & Privacy</h3>
+            <p>Model selection and Sentinel configuration.</p>
+          </div>
+          <div class="settings-group">
+            <label>Primary AI Model</label>
+            <select class="settings-select" id="setting-model">
+              <option value="gemini">Google Gemini 2.0 Flash (Recommended)</option>
+              <option value="groq">Groq (Ultra-fast LPU inference)</option>
+              <option value="openrouter">OpenRouter Free Models</option>
+              <option value="ollama">Local Ollama (Offline)</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label>Sentinel Security Guard</label>
+            <select class="settings-select" id="setting-security">
+              <option value="strict">Strict (Approve all outbound actions)</option>
+              <option value="moderate">Moderate (Approve financial only)</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label>Browser Isolation</label>
+            <div class="settings-toggle-row">
+              <span>Isolated Agent Profile</span>
+              <span class="status-tag-active">Active</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
     </div>
 
   </div>
