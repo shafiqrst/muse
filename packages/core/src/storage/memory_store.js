@@ -3,7 +3,7 @@ import path from 'path';
 
 /**
  * Persistent Memory & Goal Store for Muse AI Agent
- * Retains user preferences, durable task state machine, and long-term context.
+ * Retains user preferences, durable task state machine, execution checkpoints, and idempotency records.
  */
 export class MemoryStore {
   constructor(options = {}) {
@@ -12,6 +12,7 @@ export class MemoryStore {
     this.memoryFile = path.join(this.dataDir, 'memory.json');
     this.goalsFile = path.join(this.dataDir, 'goals.json');
     this.tasksFile = path.join(this.dataDir, 'tasks.json');
+    this.actionsFile = path.join(this.dataDir, 'executed_actions.json');
     this.init();
   }
 
@@ -37,8 +38,12 @@ export class MemoryStore {
     if (!fs.existsSync(this.tasksFile)) {
       fs.writeFileSync(this.tasksFile, JSON.stringify([], null, 2), 'utf8');
     }
+    if (!fs.existsSync(this.actionsFile)) {
+      fs.writeFileSync(this.actionsFile, JSON.stringify({}, null, 2), 'utf8');
+    }
   }
 
+  // --- Personal Memories ---
   getMemories() {
     try {
       return JSON.parse(fs.readFileSync(this.memoryFile, 'utf8'));
@@ -68,6 +73,7 @@ export class MemoryStore {
     return true;
   }
 
+  // --- High-Level Goals ---
   getGoals() {
     try {
       return JSON.parse(fs.readFileSync(this.goalsFile, 'utf8'));
@@ -103,8 +109,112 @@ export class MemoryStore {
     return null;
   }
 
-  // Durable Task Recovery
+  // --- Durable Task Execution State Machine ---
+  getTasks() {
+    try {
+      return JSON.parse(fs.readFileSync(this.tasksFile, 'utf8'));
+    } catch {
+      return [];
+    }
+  }
+
+  createTask({ title, goalId = null, metadata = {} }) {
+    const tasks = this.getTasks();
+    const newTask = {
+      id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      title,
+      goalId,
+      status: 'queued', // queued -> planning -> running -> waiting_approval -> completed | failed | paused
+      step: 0,
+      progress: 0,
+      checkpoints: [],
+      metadata,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    tasks.unshift(newTask);
+    fs.writeFileSync(this.tasksFile, JSON.stringify(tasks, null, 2), 'utf8');
+    return newTask;
+  }
+
+  getTask(taskId) {
+    const tasks = this.getTasks();
+    return tasks.find(t => t.id === taskId) || null;
+  }
+
+  saveCheckpoint(taskId, checkpointData = {}) {
+    const tasks = this.getTasks();
+    const idx = tasks.findIndex(t => t.id === taskId);
+    if (idx !== -1) {
+      const task = tasks[idx];
+      task.step = checkpointData.step || task.step;
+      task.progress = checkpointData.progress || task.progress;
+      task.status = checkpointData.status || task.status;
+      task.updatedAt = new Date().toISOString();
+      
+      const checkpoint = {
+        step: task.step,
+        status: task.status,
+        description: checkpointData.description || `Checkpoint at step ${task.step}`,
+        timestamp: new Date().toISOString()
+      };
+      
+      if (!task.checkpoints) task.checkpoints = [];
+      task.checkpoints.push(checkpoint);
+
+      // Save messages snapshot if provided
+      if (checkpointData.messages) {
+        task.lastMessagesSnapshot = checkpointData.messages;
+      }
+
+      fs.writeFileSync(this.tasksFile, JSON.stringify(tasks, null, 2), 'utf8');
+      return task;
+    }
+    return null;
+  }
+
+  updateTaskState(taskId, status, updates = {}) {
+    const tasks = this.getTasks();
+    const idx = tasks.findIndex(t => t.id === taskId);
+    if (idx !== -1) {
+      tasks[idx] = {
+        ...tasks[idx],
+        ...updates,
+        status,
+        updatedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.tasksFile, JSON.stringify(tasks, null, 2), 'utf8');
+      return tasks[idx];
+    }
+    return null;
+  }
+
   getIncompleteTasks() {
-    return this.getGoals().filter(g => g.status === 'active' || g.status === 'running' || g.status === 'waiting_approval');
+    const activeStatuses = ['queued', 'planning', 'running', 'waiting_approval', 'paused'];
+    return this.getTasks().filter(t => activeStatuses.includes(t.status));
+  }
+
+  // --- Action Idempotency Guard (Prevents Replaying Duplicate External Actions) ---
+  recordActionExecution(idempotencyKey, actionData = {}) {
+    try {
+      const records = JSON.parse(fs.readFileSync(this.actionsFile, 'utf8'));
+      records[idempotencyKey] = {
+        ...actionData,
+        executedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(this.actionsFile, JSON.stringify(records, null, 2), 'utf8');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  hasExecutedAction(idempotencyKey) {
+    try {
+      const records = JSON.parse(fs.readFileSync(this.actionsFile, 'utf8'));
+      return Boolean(records[idempotencyKey]);
+    } catch {
+      return false;
+    }
   }
 }

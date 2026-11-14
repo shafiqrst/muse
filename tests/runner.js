@@ -93,6 +93,44 @@ async function runTests() {
     failed++;
   }
 
+  // Test 5: Durable Task State Machine, Checkpointing & Recovery
+  try {
+    const memStore = new MemoryStore({ workspaceRoot: process.cwd() });
+    const task = memStore.createTask({ title: 'Autonomous Market Research' });
+    
+    // Simulate step 1 checkpoint
+    memStore.saveCheckpoint(task.id, {
+      step: 1,
+      progress: 30,
+      status: 'running',
+      description: 'Browsing target websites',
+      messages: [{ role: 'user', content: 'Autonomous Market Research' }, { role: 'assistant', content: 'Searching...' }]
+    });
+
+    // Verify incomplete task detection on restart
+    const incompleteBefore = memStore.getIncompleteTasks();
+    const hasTask = incompleteBefore.some(t => t.id === task.id && t.step === 1);
+
+    // Verify Idempotency check prevents replay
+    const idempotencyKey = `${task.id}_1_search`;
+    memStore.recordActionExecution(idempotencyKey, { query: 'test search' });
+    const isDuplicate = memStore.hasExecutedAction(idempotencyKey);
+
+    // Complete task
+    memStore.updateTaskState(task.id, 'completed', { progress: 100, step: 2 });
+    const taskCompleted = memStore.getTask(task.id);
+
+    if (hasTask && isDuplicate && taskCompleted.status === 'completed' && taskCompleted.progress === 100) {
+      console.log('✅ Test 5: Durable Task State Machine correctly checkpoints, detects recovery state & enforces idempotency');
+      passed++;
+    } else {
+      throw new Error('Durable task lifecycle verification failed');
+    }
+  } catch (err) {
+    console.error('❌ Test 5 Failed:', err.message);
+    failed++;
+  }
+
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);
   console.log(`========================================\n`);

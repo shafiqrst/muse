@@ -21,14 +21,7 @@ export class CompanionServer {
   }
 
   initAgents() {
-    this.router = new ModelRouter({
-      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-      GROQ_API_KEY: process.env.GROQ_API_KEY,
-      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
-      NVIDIA_API_KEY: process.env.NVIDIA_API_KEY,
-      OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL
-    });
-
+    this.router = new ModelRouter(process.env);
     this.sentinel = new SentinelGuard({
       workspaceRoot: this.workspaceRoot,
       confirmCallback: async (prompt) => {
@@ -62,6 +55,7 @@ export class CompanionServer {
       router: this.router,
       sentinel: this.sentinel,
       workspaceRoot: this.workspaceRoot,
+      memoryStore: this.memoryStore,
       onStepUpdate: (event) => {
         this.recordActivity({
           type: event.type,
@@ -94,10 +88,12 @@ export class CompanionServer {
       activeModel: active ? active.name : 'Local Ollama',
       memories: this.memoryStore.getMemories(),
       goals: this.memoryStore.getGoals(),
+      tasks: this.memoryStore.getTasks(),
+      incompleteTasks: this.memoryStore.getIncompleteTasks(),
       activity: this.recentActivity.slice(0, 20),
       approvals: Array.from(this.pendingConfirms.entries()).map(([id]) => id),
       connections: [
-        { name: 'Browser Sandbox (Chrome/Edge)', status: 'Connected', icon: '🌐', detail: 'Local persistent context' },
+        { name: 'Isolated Agent Sandbox (Chrome/Edge)', status: 'Connected', icon: '🌐', detail: 'Protected agent profile (.mose/isolated_agent_profile)' },
         { name: 'Google Gemini 2.0 Flash', status: process.env.GEMINI_API_KEY ? 'Active' : 'Unconfigured', icon: '✨', detail: 'Primary reasoning model' },
         { name: 'Groq LPUs', status: process.env.GROQ_API_KEY ? 'Active' : 'Unconfigured', icon: '⚡', detail: 'Fast failover tier' },
         { name: 'OpenRouter Free Tier', status: process.env.OPENROUTER_API_KEY ? 'Active' : 'Unconfigured', icon: '🔀', detail: 'Multi-model free failover' },
@@ -129,19 +125,67 @@ export class CompanionServer {
     this.wss = new WebSocketServer({ server: this.server });
 
     this.wss.on('connection', (ws) => {
+      // Send full state to newly connected client
       ws.send(JSON.stringify(this.getDashboardState()));
+
+      // Check for any incomplete tasks that survived a restart and announce them
+      const incomplete = this.memoryStore.getIncompleteTasks();
+      if (incomplete.length > 0) {
+        ws.send(JSON.stringify({
+          type: 'tasks_restored',
+          tasks: incomplete,
+          message: `Restored ${incomplete.length} active task(s) from persistent checkpoint.`
+        }));
+      }
 
       ws.on('message', async (raw) => {
         try {
           const msg = JSON.parse(raw);
           if (msg.type === 'goal') {
+            // Create durable task record
+            const taskRecord = this.memoryStore.createTask({ title: msg.text });
             const goalRecord = this.memoryStore.saveGoal({ title: msg.text, status: 'active', progress: 15 });
-            this.broadcast({ type: 'goal_created', goal: goalRecord });
+            
+            this.broadcast({
+              type: 'goal_created',
+              goal: goalRecord,
+              task: taskRecord
+            });
 
-            const result = await this.museAgent.runGoal(msg.text);
+            const result = await this.museAgent.runGoal(msg.text, { taskId: taskRecord.id });
+            
             this.memoryStore.updateGoal(goalRecord.id, { status: 'completed', progress: 100 });
-            this.broadcast({ type: 'complete', result: result.content });
+            this.broadcast({
+              type: 'complete',
+              taskId: taskRecord.id,
+              result: result.content
+            });
             this.broadcast({ type: 'sync_state', state: this.getDashboardState() });
+
+          } else if (msg.type === 'resume_task') {
+            const task = this.memoryStore.getTask(msg.taskId);
+            if (task) {
+              this.broadcast({
+                type: 'task_resumed',
+                taskId: task.id,
+                title: task.title,
+                step: task.step
+              });
+
+              const result = await this.museAgent.runGoal(task.title, {
+                taskId: task.id,
+                isResuming: true,
+                startStep: task.step
+              });
+
+              this.broadcast({
+                type: 'complete',
+                taskId: task.id,
+                result: result.content
+              });
+              this.broadcast({ type: 'sync_state', state: this.getDashboardState() });
+            }
+
           } else if (msg.type === 'confirm_response') {
             const resolve = this.pendingConfirms.get(msg.confirmId);
             if (resolve) {

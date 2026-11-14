@@ -138,26 +138,39 @@ function escapeHtml(str) {
 function renderGoals() {
   const container = document.getElementById('goals-list');
   if (!container) return;
-  if (!state.goals || state.goals.length === 0) {
+  const list = state.tasks && state.tasks.length > 0 ? state.tasks : state.goals;
+  if (!list || list.length === 0) {
     container.innerHTML = '<div class="empty-state">No goals tracked yet. Type a goal in chat to begin!</div>';
     return;
   }
-  container.innerHTML = state.goals.map(g => {
-    const statusClass = g.status === 'completed' ? 'completed' : 'active';
-    const progress = Math.min(100, Math.max(0, g.progress || (g.status === 'completed' ? 100 : 25)));
+  container.innerHTML = list.map(g => {
+    const isCompleted = g.status === 'completed';
+    const statusClass = isCompleted ? 'completed' : 'active';
+    const progress = Math.min(100, Math.max(0, g.progress || (isCompleted ? 100 : 25)));
+    const canResume = !isCompleted && g.status !== 'failed';
+    const checkpointCount = g.checkpoints ? g.checkpoints.length : 0;
     return `
       <div class="goal-card">
         <div class="goal-card-header">
           <span class="goal-title">${escapeHtml(g.title)}</span>
           <span class="goal-status-badge ${statusClass}">${g.status}</span>
         </div>
-        <div class="goal-progress-bar">
+        <div class="goal-progress-bar" style="margin-bottom: 6px;">
           <div class="goal-progress-fill" style="width: ${progress}%"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:10.5px; color:#9AA9BC;">${checkpointCount > 0 ? `${checkpointCount} checkpoint(s)` : (g.step ? `Step ${g.step}` : 'Initialized')}</span>
+          ${canResume ? `<button class="btn-small-add" style="padding:2px 8px; font-size:10px;" onclick="resumeTask('${g.id}')">▶ Resume</button>` : ''}
         </div>
       </div>
     `;
   }).join('');
 }
+
+window.resumeTask = function(taskId) {
+  socket?.send(JSON.stringify({ type: 'resume_task', taskId }));
+  showTaskProgressBanner('Resuming Task', 'Rehydrating checkpoint messages...', 40, 1);
+};
 
 function renderActivity() {
   const container = document.getElementById('activity-feed');
@@ -535,12 +548,28 @@ function handleServerEvent(data) {
       }
       state.memories = data.memories || [];
       state.goals = data.goals || [];
+      state.tasks = data.tasks || [];
+      state.incompleteTasks = data.incompleteTasks || [];
       state.activity = data.activity || [];
       state.connections = data.connections || [];
       renderGoals();
       renderActivity();
       renderConnections();
       renderMemory();
+      break;
+
+    case 'tasks_restored':
+      if (data.tasks && data.tasks.length > 0) {
+        const first = data.tasks[0];
+        showTaskProgressBanner(first.title, `Restored checkpoint at step ${first.step}.`, first.progress || 35, first.step || 1);
+        appendMessage('assistant', `🔄 Restored in-flight task: "${first.title}". You can click Resume in Tasks or continue chatting.`);
+      }
+      break;
+
+    case 'task_resumed':
+      setAvatarState('thinking');
+      agentStatus.textContent = 'Resuming goal...';
+      showTaskProgressBanner(data.title || 'Resumed Task', 'Executing next step from checkpoint...', 50, data.step || 1);
       break;
 
     case 'sync_state':

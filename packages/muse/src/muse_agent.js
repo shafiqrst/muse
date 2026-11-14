@@ -56,7 +56,8 @@ BEHAVIORAL PRINCIPLES:
       sentinel: options.sentinel,
       toolRegistry,
       systemPrompt,
-      onStepUpdate: options.onStepUpdate
+      onStepUpdate: options.onStepUpdate,
+      memoryStore: options.memoryStore
     });
 
     this.browserSandbox = browserSandbox;
