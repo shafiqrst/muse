@@ -1,4 +1,4 @@
-import { ModelRouter, SentinelGuard, ToolRegistry } from '../packages/core/src/index.js';
+import { ModelRouter, SentinelGuard, ToolRegistry, MemoryStore } from '../packages/core/src/index.js';
 import { BrowserSandbox, ToolCreator, MuseAgent } from '../packages/muse/src/index.js';
 
 async function runTests() {
@@ -25,7 +25,31 @@ async function runTests() {
     failed++;
   }
 
-  // Test 2: @mose/muse Tool Creator
+  // Test 2: @mose/core MemoryStore Persistence
+  try {
+    const memStore = new MemoryStore({ workspaceRoot: process.cwd() });
+    const addedMem = memStore.addMemory({ key: 'Test Preference', value: 'Dark mode', category: 'ui' });
+    const memories = memStore.getMemories();
+    const foundMem = memories.find(m => m.id === addedMem.id);
+    
+    const addedGoal = memStore.saveGoal({ title: 'Test Goal Execution', status: 'active', progress: 50 });
+    const updatedGoal = memStore.updateGoal(addedGoal.id, { status: 'completed', progress: 100 });
+    
+    // Clean up test items
+    memStore.deleteMemory(addedMem.id);
+
+    if (foundMem && foundMem.value === 'Dark mode' && updatedGoal.progress === 100) {
+      console.log('✅ Test 2: @mose/core MemoryStore correctly persists, updates, and removes memories & goals');
+      passed++;
+    } else {
+      throw new Error('MemoryStore verification failed');
+    }
+  } catch (err) {
+    console.error('❌ Test 2 Failed:', err.message);
+    failed++;
+  }
+
+  // Test 3: @mose/muse Tool Creator
   try {
     const creator = new ToolCreator({ workspaceRoot: process.cwd() });
     const result = await creator.createTool({
@@ -38,7 +62,7 @@ async function runTests() {
       const execRes = await creator.executeTool('math_helper');
       const parsed = JSON.parse(execRes.output);
       if (parsed.result === 84) {
-        console.log('✅ Test 2: @mose/muse ToolCreator successfully generates & executes dynamic tools');
+        console.log('✅ Test 3: @mose/muse ToolCreator successfully generates & executes dynamic tools');
         passed++;
       } else {
         throw new Error('Tool execution output mismatch');
@@ -47,11 +71,11 @@ async function runTests() {
       throw new Error(result.error);
     }
   } catch (err) {
-    console.error('❌ Test 2 Failed:', err.message);
+    console.error('❌ Test 3 Failed:', err.message);
     failed++;
   }
 
-  // Test 3: @mose/muse Browser Sandbox
+  // Test 4: @mose/muse Browser Sandbox
   try {
     const sandbox = new BrowserSandbox({ workspaceRoot: process.cwd(), headless: true });
     const nav = await sandbox.navigate('https://example.com');
@@ -59,13 +83,13 @@ async function runTests() {
     await sandbox.close();
 
     if (nav.title.includes('Example Domain') && content.text.length > 20) {
-      console.log('✅ Test 3: @mose/muse BrowserSandbox successfully launched native browser & extracted DOM');
+      console.log('✅ Test 4: @mose/muse BrowserSandbox successfully launched native browser & extracted DOM');
       passed++;
     } else {
       throw new Error('Browser navigation or content mismatch');
     }
   } catch (err) {
-    console.error('❌ Test 3 Failed:', err.message);
+    console.error('❌ Test 4 Failed:', err.message);
     failed++;
   }
 

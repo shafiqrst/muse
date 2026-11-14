@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
-import { ModelRouter, SentinelGuard } from '@mose/core';
+import { ModelRouter, SentinelGuard, MemoryStore } from '@mose/core';
 import { MuseAgent } from '@mose/muse';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,6 +15,8 @@ export class CompanionServer {
     this.workspaceRoot = options.workspaceRoot || process.cwd();
     this.port = options.port || 3500;
     this.pendingConfirms = new Map(); // confirmId -> resolve
+    this.recentActivity = [];
+    this.memoryStore = new MemoryStore({ workspaceRoot: this.workspaceRoot });
     this.initAgents();
   }
 
@@ -31,14 +33,24 @@ export class CompanionServer {
       workspaceRoot: this.workspaceRoot,
       confirmCallback: async (prompt) => {
         const confirmId = `conf_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        this.broadcast({
+        const request = {
           type: 'confirm_request',
           confirmId,
           action: prompt.action,
           riskLevel: prompt.riskLevel,
           reason: prompt.reason,
-          params: prompt.params
+          params: prompt.params,
+          timestamp: new Date().toISOString()
+        };
+
+        this.recordActivity({
+          type: 'sentinel_interception',
+          title: prompt.action,
+          detail: prompt.reason,
+          timestamp: request.timestamp
         });
+
+        this.broadcast(request);
 
         return new Promise((resolve) => {
           this.pendingConfirms.set(confirmId, resolve);
@@ -50,8 +62,21 @@ export class CompanionServer {
       router: this.router,
       sentinel: this.sentinel,
       workspaceRoot: this.workspaceRoot,
-      onStepUpdate: (event) => this.broadcast(event)
+      onStepUpdate: (event) => {
+        this.recordActivity({
+          type: event.type,
+          title: event.name || event.type,
+          detail: typeof event.result === 'string' ? event.result : JSON.stringify(event.result || event.args || {}),
+          timestamp: new Date().toISOString()
+        });
+        this.broadcast(event);
+      }
     });
+  }
+
+  recordActivity(item) {
+    this.recentActivity.unshift(item);
+    if (this.recentActivity.length > 50) this.recentActivity.pop();
   }
 
   broadcast(data) {
@@ -60,6 +85,25 @@ export class CompanionServer {
     for (const client of this.wss.clients) {
       if (client.readyState === 1) client.send(msg);
     }
+  }
+
+  getDashboardState() {
+    const active = this.router.getActiveProviders()[0];
+    return {
+      type: 'init_state',
+      activeModel: active ? active.name : 'Local Ollama',
+      memories: this.memoryStore.getMemories(),
+      goals: this.memoryStore.getGoals(),
+      activity: this.recentActivity.slice(0, 20),
+      approvals: Array.from(this.pendingConfirms.entries()).map(([id]) => id),
+      connections: [
+        { name: 'Browser Sandbox (Chrome/Edge)', status: 'Connected', icon: '🌐', detail: 'Local persistent context' },
+        { name: 'Google Gemini 2.0 Flash', status: process.env.GEMINI_API_KEY ? 'Active' : 'Unconfigured', icon: '✨', detail: 'Primary reasoning model' },
+        { name: 'Groq LPUs', status: process.env.GROQ_API_KEY ? 'Active' : 'Unconfigured', icon: '⚡', detail: 'Fast failover tier' },
+        { name: 'OpenRouter Free Tier', status: process.env.OPENROUTER_API_KEY ? 'Active' : 'Unconfigured', icon: '🔀', detail: 'Multi-model free failover' },
+        { name: 'Local Ollama', status: 'Standby', icon: '🦙', detail: 'Offline fallback engine' }
+      ]
+    };
   }
 
   async start() {
@@ -85,24 +129,33 @@ export class CompanionServer {
     this.wss = new WebSocketServer({ server: this.server });
 
     this.wss.on('connection', (ws) => {
-      const active = this.router.getActiveProviders()[0];
-      ws.send(JSON.stringify({
-        type: 'init',
-        model: active ? active.name.split(' ')[0] + ' ' + (active.name.split(' ')[1] || '') : 'Ollama'
-      }));
+      ws.send(JSON.stringify(this.getDashboardState()));
 
       ws.on('message', async (raw) => {
         try {
           const msg = JSON.parse(raw);
           if (msg.type === 'goal') {
+            const goalRecord = this.memoryStore.saveGoal({ title: msg.text, status: 'active', progress: 15 });
+            this.broadcast({ type: 'goal_created', goal: goalRecord });
+
             const result = await this.museAgent.runGoal(msg.text);
+            this.memoryStore.updateGoal(goalRecord.id, { status: 'completed', progress: 100 });
             this.broadcast({ type: 'complete', result: result.content });
+            this.broadcast({ type: 'sync_state', state: this.getDashboardState() });
           } else if (msg.type === 'confirm_response') {
             const resolve = this.pendingConfirms.get(msg.confirmId);
             if (resolve) {
               resolve(msg.approved);
               this.pendingConfirms.delete(msg.confirmId);
             }
+          } else if (msg.type === 'add_memory') {
+            const added = this.memoryStore.addMemory(msg.memory);
+            this.broadcast({ type: 'memory_added', memory: added, memories: this.memoryStore.getMemories() });
+          } else if (msg.type === 'delete_memory') {
+            this.memoryStore.deleteMemory(msg.id);
+            this.broadcast({ type: 'memory_deleted', id: msg.id, memories: this.memoryStore.getMemories() });
+          } else if (msg.type === 'refresh_state') {
+            ws.send(JSON.stringify(this.getDashboardState()));
           }
         } catch (err) {
           this.broadcast({ type: 'error', message: err.message });
