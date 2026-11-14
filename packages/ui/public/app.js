@@ -81,12 +81,10 @@ btnCloseDrawer?.addEventListener('click', () => toggleDrawer(false));
 drawerOverlay?.addEventListener('click', () => toggleDrawer(false));
 
 btnExpandWorkspace?.addEventListener('click', () => {
-  appShell.classList.toggle('expanded');
-  const isExpanded = appShell.classList.contains('expanded');
-  btnExpandWorkspace.classList.toggle('active', isExpanded);
-  if (isExpanded) {
-    showSubView('activity');
-  }
+  appShell.classList.toggle('compact-forced');
+  const isCompact = appShell.classList.contains('compact-forced');
+  btnExpandWorkspace.classList.toggle('active', !isCompact);
+  btnExpandWorkspace.title = isCompact ? "Switch to Dual-Pane Work Surface" : "Switch to Focused Chat";
 });
 
 drawerItems.forEach(item => {
@@ -98,11 +96,9 @@ drawerItems.forEach(item => {
     toggleDrawer(false);
 
     if (viewName === 'chat') {
-      if (!btnExpandWorkspace.classList.contains('active')) {
-        appShell.classList.remove('expanded');
-      }
+      // In mobile or small window, keep focus on chat
     } else {
-      appShell.classList.add('expanded');
+      appShell.classList.remove('compact-forced');
       btnExpandWorkspace.classList.add('active');
       showSubView(viewName);
     }
@@ -120,6 +116,43 @@ function showSubView(viewName) {
     else if (viewName === 'connections') renderConnections();
     else if (viewName === 'memory') renderMemory();
   }
+}
+
+// Live Work Surface: Browser Takeover
+const btnTakeControl = document.getElementById('btn-take-control');
+let userInControl = false;
+btnTakeControl?.addEventListener('click', () => {
+  userInControl = !userInControl;
+  btnTakeControl.textContent = userInControl ? '🤖 Return to Muse' : '✋ Take Control';
+  btnTakeControl.classList.toggle('active', userInControl);
+  const statusEl = document.getElementById('browser-deck-status');
+  if (statusEl) {
+    statusEl.textContent = userInControl ? 'User Manual Takeover Active' : 'Isolated Agent Sandbox • Ready';
+  }
+});
+
+// Render "Pick Up Where You Left Off" Section
+function renderWelcomeResumeSection() {
+  const section = document.getElementById('welcome-resume-section');
+  const list = document.getElementById('welcome-resume-list');
+  if (!section || !list) return;
+
+  const active = (state.tasks || []).filter(t => t.status === 'running' || t.status === 'waiting_approval' || t.status === 'queued' || t.status === 'active');
+  if (active.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  list.innerHTML = active.slice(0, 3).map(t => `
+    <div class="resume-card">
+      <div>
+        <div class="resume-card-title">${escapeHtml(t.title)}</div>
+        <div class="resume-card-step">Status: ${escapeHtml(t.status)} • Step ${t.step || 1} (${t.progress || 20}%)</div>
+      </div>
+      <button class="btn-small-add" style="padding:3px 9px;" onclick="resumeTask('${t.id}')">▶ Resume</button>
+    </div>
+  `).join('');
 }
 
 function escapeHtml(str) {
@@ -539,6 +572,35 @@ function connect() {
   };
 }
 
+function updateBrowserDeck(url, title, content) {
+  const urlEl = document.getElementById('deck-browser-url');
+  const titleEl = document.getElementById('deck-browser-title');
+  const contentEl = document.getElementById('deck-browser-content');
+  if (url && urlEl) urlEl.textContent = url;
+  if (title && titleEl) titleEl.textContent = title;
+  if (content && contentEl) contentEl.textContent = content;
+}
+
+function addBrowserMilestone(title, detail) {
+  const list = document.getElementById('deck-milestones-list');
+  if (!list) return;
+  const empty = list.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'goal-card';
+  item.style.marginBottom = '6px';
+  item.style.padding = '8px 10px';
+  item.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+      <span style="font-weight:600; font-size:12px; color:#F0F4F8;">${escapeHtml(title)}</span>
+      <span style="font-size:10px; color:#54C8E8;">${new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' })}</span>
+    </div>
+    <div style="font-size:11px; color:#9AA9BC;">${escapeHtml(detail)}</div>
+  `;
+  list.insertBefore(item, list.firstChild);
+}
+
 function handleServerEvent(data) {
   switch (data.type) {
     case 'init_state':
@@ -556,10 +618,14 @@ function handleServerEvent(data) {
       renderActivity();
       renderConnections();
       renderMemory();
+      renderWelcomeResumeSection();
       break;
 
     case 'tasks_restored':
       if (data.tasks && data.tasks.length > 0) {
+        state.tasks = data.tasks;
+        renderGoals();
+        renderWelcomeResumeSection();
         const first = data.tasks[0];
         showTaskProgressBanner(first.title, `Restored checkpoint at step ${first.step}.`, first.progress || 35, first.step || 1);
         appendMessage('assistant', `🔄 Restored in-flight task: "${first.title}". You can click Resume in Tasks or continue chatting.`);
@@ -582,6 +648,7 @@ function handleServerEvent(data) {
         renderActivity();
         renderConnections();
         renderMemory();
+        renderWelcomeResumeSection();
       }
       break;
 
@@ -589,6 +656,7 @@ function handleServerEvent(data) {
       if (data.goal) {
         state.goals = [data.goal, ...(state.goals || [])];
         renderGoals();
+        renderWelcomeResumeSection();
         showTaskProgressBanner(data.goal.title, 'Planning execution', 20, 1);
       }
       break;
@@ -609,8 +677,15 @@ function handleServerEvent(data) {
         sheetTitle.textContent = `Opening ${data.args.url}...`;
         sheetSummary.textContent = 'Navigating in isolated browser sandbox...';
         updateTaskBannerStep('Browser Action', `Navigating to ${data.args.url}`, 60);
+        updateBrowserDeck(data.args.url, `Navigating to ${data.args.url}`, 'Loading remote page in isolated profile...');
+        addBrowserMilestone('Browser Navigation', `Navigated to ${data.args.url}`);
       } else if (data.name === 'browser_search') {
         updateTaskBannerStep('Web Search', `Searching for: "${data.args.query}"`, 50);
+        updateBrowserDeck(`https://duckduckgo.com/?q=${encodeURIComponent(data.args.query || '')}`, `Search: ${data.args.query}`, 'Querying search index...');
+        addBrowserMilestone('Search Query', `Searched for "${data.args.query}"`);
+      } else if (data.name === 'browser_extract') {
+        updateTaskBannerStep('Extracting DOM', 'Extracting page text and tables...', 70);
+        addBrowserMilestone('DOM Extraction', 'Extracting structured data from current page');
       }
       break;
 
@@ -618,8 +693,10 @@ function handleServerEvent(data) {
       if (data.name === 'browser_navigate' && data.result?.title) {
         sheetTitle.textContent = data.result.title;
         sheetSummary.textContent = `Loaded ${data.result.url}`;
+        updateBrowserDeck(data.result.url, data.result.title, `Loaded successfully (${data.result.status || 200})`);
       } else if (data.name === 'browser_extract' && data.result?.text) {
         sheetSummary.textContent = data.result.text.slice(0, 140) + '...';
+        updateBrowserDeck(null, null, data.result.text.slice(0, 400) + '...');
       }
       break;
 

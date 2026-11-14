@@ -17,7 +17,7 @@
     <header class="companion-header">
       <div class="header-left">
         <!-- Subtle Living Mini Avatar (34px) -->
-        <div class="avatar-head-wrapper" id="avatar-head-wrapper" title="Muse Persona">
+        <div class="avatar-head-wrapper" id="avatar-head-wrapper" title="Muse Persona • Natural eye gaze & speech synchronization">
           <div class="avatar-halo" id="avatar-halo"></div>
           <svg viewBox="0 0 100 100" class="mini-avatar-svg" id="avatar-svg">
             <defs>
@@ -57,20 +57,20 @@
       <!-- Controls & Actions -->
       <div class="header-right">
         <!-- Voice Toggle -->
-        <button class="header-icon-btn active" id="btn-voice-toggle" title="Toggle Voice Response">
+        <button class="header-icon-btn active" id="btn-voice-toggle" title="Toggle Voice Response (Text-to-Speech)">
           <span class="voice-wave">
             <span></span><span></span><span></span>
           </span>
         </button>
 
         <!-- Model Status Pill -->
-        <div class="model-pill" id="active-model-badge" title="Active Reasoning Engine">
+        <div class="model-pill" id="active-model-badge" title="Active Reasoning Model: Google Gemini 2.0 Flash">
           <span class="pulse-dot"></span>
           <span id="model-name">Gemini Flash</span>
         </div>
 
         <!-- 1-Click Expand / Collapse Workspace Toggle -->
-        <button class="header-icon-btn" id="btn-expand-workspace" title="Toggle Expandable Workspace (440px ⟷ 840px)">
+        <button class="header-icon-btn" id="btn-expand-workspace" title="Toggle Work Surface Mode (Split / Focused)">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
           </svg>
@@ -92,7 +92,7 @@
     <aside class="side-drawer" id="side-drawer">
       <div class="drawer-header">
         <div class="drawer-title">
-          <span>Navigation</span>
+          <span>Muse Companion</span>
           <span class="drawer-badge">v2.0</span>
         </div>
         <button class="drawer-close" id="btn-close-drawer">✕</button>
@@ -102,13 +102,17 @@
           <span class="drawer-icon">💬</span>
           <span class="drawer-label">Chat & Conversation</span>
         </button>
+        <button class="drawer-item" data-view="browser">
+          <span class="drawer-icon">🌐</span>
+          <span class="drawer-label">Browser Work Surface</span>
+        </button>
         <button class="drawer-item" data-view="goals">
           <span class="drawer-icon">🎯</span>
           <span class="drawer-label">Tasks & Goals</span>
         </button>
         <button class="drawer-item" data-view="activity">
           <span class="drawer-icon">⚡</span>
-          <span class="drawer-label">Activity & Audit Log</span>
+          <span class="drawer-label">Activity & Audit Trail</span>
         </button>
         <button class="drawer-item" data-view="approvals">
           <span class="drawer-icon">🛡️</span>
@@ -117,7 +121,7 @@
         </button>
         <button class="drawer-item" data-view="connections">
           <span class="drawer-icon">🔌</span>
-          <span class="drawer-label">Connected Apps</span>
+          <span class="drawer-label">Connected Apps & Models</span>
         </button>
         <button class="drawer-item" data-view="memory">
           <span class="drawer-icon">🧠</span>
@@ -130,12 +134,12 @@
       </nav>
       <div class="drawer-footer">
         <div class="privacy-note">
-          🔒 100% Private Sandbox • Runs on your machine
+          🔒 100% Private Sandbox • Runs entirely on your machine
         </div>
       </div>
     </aside>
 
-    <!-- Main Body Workspace -->
+    <!-- Main Body Workspace (Responsive Dual-Pane or Single-Pane) -->
     <div class="workspace-body">
       
       <!-- Primary Pane: Conversational Stream -->
@@ -197,17 +201,45 @@
 
         <!-- Scrollable Messages Timeline -->
         <main class="chatbox-messages" id="timeline">
+          
+          <!-- Contextual Home / Welcome Card -->
           <div class="chat-welcome-card" id="welcome-card">
-            <div class="welcome-icon">✨</div>
-            <h3>Good morning! What can I take care of?</h3>
-            <p>I can browse the web, compare prices, manage tasks, and run long-term goals in the background.</p>
-          </div>
+            <div class="welcome-header-row">
+              <div class="welcome-icon">✨</div>
+              <div>
+                <h3>Good morning</h3>
+                <p class="welcome-subtitle">Your personal companion is ready to take action on your behalf.</p>
+              </div>
+            </div>
 
-          <div class="quick-chips-wrapper" id="quick-chips">
-            <button class="chip" data-prompt="Find the top 3 best flight deals to Tokyo under $600">✈️ Flight deals to Tokyo</button>
-            <button class="chip" data-prompt="Check news.ycombinator.com and summarize the top AI story">📰 Top AI headlines</button>
-            <button class="chip" data-prompt="Compare iPad Air prices across major retailers">🛒 Compare iPad prices</button>
-            <button class="chip" data-prompt="Help me organize a 3-day health and fitness routine">💪 Health & fitness plan</button>
+            <!-- "Pick up where you left off" Section (Restored Tasks & Goals) -->
+            <div class="resume-section" id="welcome-resume-section" style="display: none;">
+              <div class="section-label">⚡ Pick up where you left off</div>
+              <div class="resume-cards-list" id="welcome-resume-list"></div>
+            </div>
+
+            <!-- Categorized Starter Actions -->
+            <div class="chips-category-group">
+              <div class="section-label">What would you like me to do?</div>
+              <div class="chips-grid">
+                <button class="chip" data-prompt="Find the top 3 best flight deals to Tokyo under $600 and compare them">
+                  <span class="chip-icon">✈️</span>
+                  <span class="chip-text"><strong>Research Tokyo flights</strong><small>Compare airline prices</small></span>
+                </button>
+                <button class="chip" data-prompt="Compare iPad Air and Samsung Galaxy Tab S9 specifications and prices across major retailers">
+                  <span class="chip-icon">🛒</span>
+                  <span class="chip-text"><strong>Compare tablet prices</strong><small>Check specs & best deals</small></span>
+                </button>
+                <button class="chip" data-prompt="Browse news.ycombinator.com and prepare an executive summary of the top 3 AI discussions">
+                  <span class="chip-icon">📰</span>
+                  <span class="chip-text"><strong>Summarize AI headlines</strong><small>Extract Hacker News stories</small></span>
+                </button>
+                <button class="chip" data-prompt="Help me review my goals and plan my key priorities for today">
+                  <span class="chip-icon">📋</span>
+                  <span class="chip-text"><strong>Organize today's goals</strong><small>Plan schedule & milestones</small></span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="conversation-stream" id="stream"></div>
@@ -216,7 +248,7 @@
         <!-- Bottom Input Composer -->
         <footer class="chatbox-footer">
           <form class="input-form" id="chat-form">
-            <button type="button" class="mic-btn" id="btn-mic" title="Voice Dictation">
+            <button type="button" class="mic-btn" id="btn-mic" title="Voice Dictation (Speech-to-Text)">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
                 <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
@@ -233,23 +265,51 @@
         </footer>
       </section>
 
-      <!-- Secondary Expandable Deck / Inspection Deck (Visible in expanded mode or view switch) -->
+      <!-- Secondary Work Surface / Inspection Deck (Adaptive Dual-Pane) -->
       <section class="inspection-pane" id="inspection-pane">
         
-        <!-- View: Goals -->
+        <!-- View: Browser Work Surface (Default in wide dual-pane) -->
+        <div class="sub-view" id="view-browser" style="display: block;">
+          <div class="sub-header header-split">
+            <div>
+              <h3>🌐 Live Browser Work Surface</h3>
+              <p id="browser-deck-status">Isolated Agent Sandbox • Ready</p>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn-small-add" id="btn-take-control" title="Intervene in browser session">✋ Take Control</button>
+            </div>
+          </div>
+          <div class="deck-browser-card">
+            <div class="deck-url-bar">
+              <span class="pulse-dot"></span>
+              <span class="deck-url-text" id="deck-browser-url">about:blank</span>
+            </div>
+            <div class="deck-title" id="deck-browser-title">Browser Session Ready</div>
+            <div class="deck-content-preview" id="deck-browser-content">
+              When Muse researches, extracts web information, or automates online tasks, the live session details, DOM text, and extracted tables will appear here in real time.
+            </div>
+          </div>
+
+          <div class="deck-section-title">⚡ Live Execution Milestones</div>
+          <div class="cards-list" id="deck-milestones-list">
+            <div class="empty-state">No active browser steps currently running.</div>
+          </div>
+        </div>
+
+        <!-- View: Goals & Tasks -->
         <div class="sub-view" id="view-goals" style="display: none;">
           <div class="sub-header">
             <h3>🎯 Goals & Ongoing Projects</h3>
-            <p>Autonomous goals running in background.</p>
+            <p>Autonomous goals running in background with durable state.</p>
           </div>
           <div class="cards-list" id="goals-list"></div>
         </div>
 
-        <!-- View: Activity -->
+        <!-- View: Activity & Audit Trail -->
         <div class="sub-view" id="view-activity" style="display: none;">
           <div class="sub-header">
             <h3>⚡ Real-Time Activity & Audit Log</h3>
-            <p>Chronological execution trail of browser and tools.</p>
+            <p>Chronological execution trail of browser actions and tools.</p>
           </div>
           <div class="activity-feed" id="activity-feed"></div>
         </div>
@@ -258,7 +318,7 @@
         <div class="sub-view" id="view-approvals" style="display: none;">
           <div class="sub-header">
             <h3>🛡️ Sentinel Approvals Queue</h3>
-            <p>Sensitive actions requiring your sign-off.</p>
+            <p>Sensitive actions requiring your human authorization.</p>
           </div>
           <div class="cards-list" id="approvals-queue">
             <div class="empty-state">No pending approvals. Your actions are safe.</div>
@@ -269,7 +329,7 @@
         <div class="sub-view" id="view-connections" style="display: none;">
           <div class="sub-header">
             <h3>🔌 Connected Apps & Sandbox</h3>
-            <p>Active models and browser sandbox status.</p>
+            <p>Active multi-model router tiers and browser profile.</p>
           </div>
           <div class="cards-list" id="connections-list"></div>
         </div>
@@ -279,7 +339,7 @@
           <div class="sub-header header-split">
             <div>
               <h3>🧠 Personal Memory</h3>
-              <p>Preferences learned across conversations.</p>
+              <p>User preferences and context remembered across sessions.</p>
             </div>
             <button class="btn-small-add" id="btn-add-memory">+ Add</button>
           </div>
@@ -289,29 +349,29 @@
         <!-- View: Settings -->
         <div class="sub-view" id="view-settings" style="display: none;">
           <div class="sub-header">
-            <h3>⚙️ Settings & Privacy</h3>
-            <p>Model selection and Sentinel configuration.</p>
+            <h3>⚙️ Settings & Controls</h3>
+            <p>Reasoning models, voice speed, and Sentinel security strictness.</p>
           </div>
           <div class="settings-group">
-            <label>Primary AI Model</label>
+            <label>Primary AI Reasoning Model</label>
             <select class="settings-select" id="setting-model">
-              <option value="gemini">Google Gemini 2.0 Flash (Recommended)</option>
-              <option value="groq">Groq (Ultra-fast LPU inference)</option>
+              <option value="gemini">Google Gemini 2.0 Flash (Recommended - Free Tier)</option>
+              <option value="groq">Groq LPUs (Ultra-fast Llama-3.3 / Qwen)</option>
               <option value="openrouter">OpenRouter Free Models</option>
-              <option value="ollama">Local Ollama (Offline)</option>
+              <option value="ollama">Local Ollama (100% Offline)</option>
             </select>
           </div>
           <div class="settings-group">
             <label>Sentinel Security Guard</label>
             <select class="settings-select" id="setting-security">
-              <option value="strict">Strict (Approve all outbound actions)</option>
+              <option value="strict">Strict (Approve all emails, payments & writes)</option>
               <option value="moderate">Moderate (Approve financial only)</option>
             </select>
           </div>
           <div class="settings-group">
-            <label>Browser Isolation</label>
+            <label>Sandbox Isolation Status</label>
             <div class="settings-toggle-row">
-              <span>Isolated Agent Profile</span>
+              <span>Isolated Agent Profile (.mose/isolated_agent_profile)</span>
               <span class="status-tag-active">Active</span>
             </div>
           </div>
