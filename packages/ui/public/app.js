@@ -110,7 +110,8 @@ function showSubView(viewName) {
   const target = document.getElementById(`view-${viewName}`);
   if (target) {
     target.style.display = 'block';
-    if (viewName === 'goals') renderGoals();
+    if (viewName === 'workspace-home') renderWorkspaceHome();
+    else if (viewName === 'goals') renderGoals();
     else if (viewName === 'activity') renderActivity();
     else if (viewName === 'approvals') renderApprovalsQueue();
     else if (viewName === 'connections') renderConnections();
@@ -118,7 +119,7 @@ function showSubView(viewName) {
   }
 }
 
-// Live Work Surface: Browser Takeover
+// Live Work Surface: Browser Takeover & Task Controls
 const btnTakeControl = document.getElementById('btn-take-control');
 let userInControl = false;
 btnTakeControl?.addEventListener('click', () => {
@@ -127,8 +128,109 @@ btnTakeControl?.addEventListener('click', () => {
   btnTakeControl.classList.toggle('active', userInControl);
   const statusEl = document.getElementById('browser-deck-status');
   if (statusEl) {
-    statusEl.textContent = userInControl ? 'User Manual Takeover Active' : 'Isolated Agent Sandbox • Ready';
+    statusEl.textContent = userInControl ? 'User Manual Takeover Active' : 'Isolated Agent Sandbox • Connected';
   }
+});
+
+let isTaskPaused = false;
+const btnPauseTask = document.getElementById('btn-pause-task');
+btnPauseTask?.addEventListener('click', () => {
+  isTaskPaused = !isTaskPaused;
+  btnPauseTask.textContent = isTaskPaused ? '▶ Resume' : '⏸ Pause';
+  btnPauseTask.classList.toggle('active', isTaskPaused);
+  const statusPill = document.getElementById('active-work-status-pill');
+  if (statusPill) {
+    statusPill.textContent = isTaskPaused ? 'Paused' : 'Working';
+    statusPill.className = isTaskPaused ? 'status-pill-pulse paused' : 'status-pill-pulse';
+  }
+});
+
+const btnBackHome = document.getElementById('btn-back-home');
+btnBackHome?.addEventListener('click', () => {
+  showSubView('workspace-home');
+});
+
+// Contextual Workspace Home Rendering
+function renderWorkspaceHome() {
+  const tasksCountEl = document.getElementById('metric-tasks-count');
+  const goalsCountEl = document.getElementById('metric-goals-count');
+  const modelNameEl = document.getElementById('metric-model-name');
+  const tasksListEl = document.getElementById('workspace-tasks-list');
+
+  const activeTasks = (state.tasks || []).filter(t => t.status === 'running' || t.status === 'active' || t.status === 'waiting_approval');
+  const totalTasks = (state.tasks || []).length;
+  const totalGoals = (state.goals || []).length;
+
+  if (tasksCountEl) tasksCountEl.textContent = String(activeTasks.length || totalTasks || 0);
+  if (goalsCountEl) goalsCountEl.textContent = String(totalGoals || 0);
+  if (modelNameEl) modelNameEl.textContent = state.activeModel ? state.activeModel.split(' ')[0] + ' ' + (state.activeModel.split(' ')[1] || '') : 'Gemini Flash';
+
+  if (!tasksListEl) return;
+  if (!state.tasks || state.tasks.length === 0) {
+    tasksListEl.innerHTML = `
+      <div class="workspace-empty-card">
+        <div class="empty-icon-wrap">🎯</div>
+        <h4>No background tasks running</h4>
+        <p>Ask Muse to research a topic, compare products, or automate a web task. Tasks run with durable checkpoints in the background.</p>
+        <div class="empty-quick-prompts">
+          <button class="empty-prompt-btn" onclick="quickFillPrompt('Find the top 3 best flight deals to Tokyo under $600 and compare them')">✈️ Tokyo Flights</button>
+          <button class="empty-prompt-btn" onclick="quickFillPrompt('Compare iPad Air and Samsung Galaxy Tab S9 specifications and prices')">🛒 Compare Tablets</button>
+          <button class="empty-prompt-btn" onclick="quickFillPrompt('Browse news.ycombinator.com and summarize the top AI discussions')">📰 Hacker News AI</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  tasksListEl.innerHTML = state.tasks.slice(0, 4).map(t => {
+    const isCompleted = t.status === 'completed';
+    const progress = t.progress || (isCompleted ? 100 : 30);
+    return `
+      <div class="goal-card" style="margin-bottom: 8px;">
+        <div class="goal-card-header">
+          <span class="goal-title">${escapeHtml(t.title)}</span>
+          <span class="goal-status-badge ${isCompleted ? 'completed' : 'active'}">${t.status}</span>
+        </div>
+        <div class="goal-progress-bar" style="margin-bottom: 6px;">
+          <div class="goal-progress-fill" style="width: ${progress}%"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11px; color:#9AA9BC;">Step ${t.step || 1} • ${progress}% complete</span>
+          ${!isCompleted ? `<button class="btn-small-add" onclick="resumeTask('${t.id}')">▶ Resume</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+window.quickFillPrompt = function(promptText) {
+  if (userInput) {
+    userInput.value = promptText;
+    userInput.focus();
+  }
+};
+
+function updateGreeting() {
+  const hour = new Date().getHours();
+  let greeting = 'Good morning';
+  if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+  else if (hour >= 17 || hour < 4) greeting = 'Good evening';
+
+  const greetingEl = document.getElementById('welcome-greeting');
+  if (greetingEl) greetingEl.textContent = greeting;
+}
+
+// Continue Work Section Quick Shortcuts
+document.getElementById('card-action-research')?.addEventListener('click', () => {
+  quickFillPrompt('Research best noise-cancelling headphones under $250 and compare reviews');
+});
+
+document.getElementById('card-action-goals')?.addEventListener('click', () => {
+  showSubView('goals');
+});
+
+document.getElementById('card-action-activity')?.addEventListener('click', () => {
+  showSubView('activity');
 });
 
 // Render "Pick Up Where You Left Off" Section
@@ -574,29 +676,50 @@ function connect() {
 
 function updateBrowserDeck(url, title, content) {
   const urlEl = document.getElementById('deck-browser-url');
+  const urlBar = document.getElementById('deck-url-bar');
   const titleEl = document.getElementById('deck-browser-title');
   const contentEl = document.getElementById('deck-browser-content');
-  if (url && urlEl) urlEl.textContent = url;
+  if (url && url !== 'about:blank') {
+    if (urlEl) urlEl.textContent = url;
+    if (urlBar) urlBar.style.display = 'flex';
+  }
   if (title && titleEl) titleEl.textContent = title;
   if (content && contentEl) contentEl.textContent = content;
 }
 
-function addBrowserMilestone(title, detail) {
+let milestoneCount = 0;
+function addBrowserMilestone(title, detail, status = 'done') {
   const list = document.getElementById('deck-milestones-list');
+  const countEl = document.getElementById('deck-milestones-count');
   if (!list) return;
+
   const empty = list.querySelector('.empty-state');
   if (empty) empty.remove();
 
+  milestoneCount++;
+  if (countEl) countEl.textContent = `${milestoneCount} step${milestoneCount > 1 ? 's' : ''} executed`;
+
   const item = document.createElement('div');
-  item.className = 'goal-card';
-  item.style.marginBottom = '6px';
-  item.style.padding = '8px 10px';
+  item.className = `timeline-milestone ${status === 'running' ? 'running' : ''}`;
+  
+  let icon = '🌐';
+  if (title.toLowerCase().includes('search')) icon = '🔍';
+  else if (title.toLowerCase().includes('extract') || title.toLowerCase().includes('dom')) icon = '📄';
+  else if (title.toLowerCase().includes('security') || title.toLowerCase().includes('approval')) icon = '🛡️';
+  else if (title.toLowerCase().includes('plan')) icon = '🧠';
+  else if (title.toLowerCase().includes('complete')) icon = '✅';
+
+  const timeStr = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
   item.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-      <span style="font-weight:600; font-size:12px; color:#F0F4F8;">${escapeHtml(title)}</span>
-      <span style="font-size:10px; color:#54C8E8;">${new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' })}</span>
+    <div class="milestone-left">
+      <span class="milestone-icon">${icon}</span>
+      <div>
+        <div class="milestone-title">${escapeHtml(title)}</div>
+        <div class="milestone-detail">${escapeHtml(detail)} <span style="font-size:10px; color:#64748b; margin-left:6px;">${timeStr}</span></div>
+      </div>
     </div>
-    <div style="font-size:11px; color:#9AA9BC;">${escapeHtml(detail)}</div>
+    <span class="milestone-badge ${status}">${status}</span>
   `;
   list.insertBefore(item, list.firstChild);
 }
@@ -619,6 +742,9 @@ function handleServerEvent(data) {
       renderConnections();
       renderMemory();
       renderWelcomeResumeSection();
+      renderWorkspaceHome();
+      updateGreeting();
+      showSubView('workspace-home');
       break;
 
     case 'tasks_restored':
@@ -626,6 +752,7 @@ function handleServerEvent(data) {
         state.tasks = data.tasks;
         renderGoals();
         renderWelcomeResumeSection();
+        renderWorkspaceHome();
         const first = data.tasks[0];
         showTaskProgressBanner(first.title, `Restored checkpoint at step ${first.step}.`, first.progress || 35, first.step || 1);
         appendMessage('assistant', `🔄 Restored in-flight task: "${first.title}". You can click Resume in Tasks or continue chatting.`);
@@ -636,6 +763,7 @@ function handleServerEvent(data) {
       setAvatarState('thinking');
       agentStatus.textContent = 'Resuming goal...';
       showTaskProgressBanner(data.title || 'Resumed Task', 'Executing next step from checkpoint...', 50, data.step || 1);
+      showSubView('browser');
       break;
 
     case 'sync_state':
@@ -649,6 +777,7 @@ function handleServerEvent(data) {
         renderConnections();
         renderMemory();
         renderWelcomeResumeSection();
+        renderWorkspaceHome();
       }
       break;
 
@@ -657,7 +786,16 @@ function handleServerEvent(data) {
         state.goals = [data.goal, ...(state.goals || [])];
         renderGoals();
         renderWelcomeResumeSection();
+        renderWorkspaceHome();
         showTaskProgressBanner(data.goal.title, 'Planning execution', 20, 1);
+        showSubView('browser');
+        const titleEl = document.getElementById('active-work-title');
+        if (titleEl) titleEl.textContent = data.goal.title;
+        const statusPill = document.getElementById('active-work-status-pill');
+        if (statusPill) {
+          statusPill.textContent = 'Working';
+          statusPill.className = 'status-pill-pulse';
+        }
       }
       break;
 
@@ -671,6 +809,8 @@ function handleServerEvent(data) {
       setAvatarState('thinking');
       agentStatus.textContent = `Executing: ${data.name}...`;
 
+      showSubView('browser');
+
       if (data.name === 'browser_navigate' && data.args?.url) {
         browserSheet.style.display = 'block';
         sheetUrl.textContent = data.args.url;
@@ -678,14 +818,19 @@ function handleServerEvent(data) {
         sheetSummary.textContent = 'Navigating in isolated browser sandbox...';
         updateTaskBannerStep('Browser Action', `Navigating to ${data.args.url}`, 60);
         updateBrowserDeck(data.args.url, `Navigating to ${data.args.url}`, 'Loading remote page in isolated profile...');
-        addBrowserMilestone('Browser Navigation', `Navigated to ${data.args.url}`);
+        addBrowserMilestone('Browser Navigation', `Navigating to ${data.args.url}`, 'running');
+        const btnTake = document.getElementById('btn-take-control');
+        if (btnTake) btnTake.style.display = 'inline-flex';
       } else if (data.name === 'browser_search') {
         updateTaskBannerStep('Web Search', `Searching for: "${data.args.query}"`, 50);
-        updateBrowserDeck(`https://duckduckgo.com/?q=${encodeURIComponent(data.args.query || '')}`, `Search: ${data.args.query}`, 'Querying search index...');
-        addBrowserMilestone('Search Query', `Searched for "${data.args.query}"`);
+        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(data.args.query || '')}`;
+        updateBrowserDeck(searchUrl, `Search: ${data.args.query}`, 'Querying search index...');
+        addBrowserMilestone('Search Query', `Searching for "${data.args.query}"`, 'running');
+        const btnTake = document.getElementById('btn-take-control');
+        if (btnTake) btnTake.style.display = 'inline-flex';
       } else if (data.name === 'browser_extract') {
         updateTaskBannerStep('Extracting DOM', 'Extracting page text and tables...', 70);
-        addBrowserMilestone('DOM Extraction', 'Extracting structured data from current page');
+        addBrowserMilestone('DOM Extraction', 'Extracting structured data from current page', 'running');
       }
       break;
 
@@ -694,9 +839,11 @@ function handleServerEvent(data) {
         sheetTitle.textContent = data.result.title;
         sheetSummary.textContent = `Loaded ${data.result.url}`;
         updateBrowserDeck(data.result.url, data.result.title, `Loaded successfully (${data.result.status || 200})`);
+        addBrowserMilestone('Page Loaded', `${data.result.title} (${data.result.url})`, 'done');
       } else if (data.name === 'browser_extract' && data.result?.text) {
         sheetSummary.textContent = data.result.text.slice(0, 140) + '...';
         updateBrowserDeck(null, null, data.result.text.slice(0, 400) + '...');
+        addBrowserMilestone('Data Extracted', `Retrieved ${data.result.text.length} characters of structured DOM`, 'done');
       }
       break;
 
@@ -714,6 +861,7 @@ function handleServerEvent(data) {
       
       updateApprovalBadge();
       updateTaskBannerStep('Approval Required', 'Waiting for your sign-off...', 80);
+      addBrowserMilestone('Security Interception', `Sentinel paused execution: ${data.action}`, 'running');
       break;
 
     case 'complete':
@@ -722,6 +870,18 @@ function handleServerEvent(data) {
       hideTaskProgressBanner();
       appendMessage('assistant', data.result || 'Task completed.');
       if (data.result) speakText(data.result);
+
+      const statusPill = document.getElementById('active-work-status-pill');
+      if (statusPill) {
+        statusPill.textContent = 'Completed';
+        statusPill.className = 'status-pill-pulse done';
+      }
+      const btnTake = document.getElementById('btn-take-control');
+      if (btnTake) btnTake.style.display = 'none';
+      const btnPause = document.getElementById('btn-pause-task');
+      if (btnPause) btnPause.style.display = 'none';
+      addBrowserMilestone('Task Complete', 'All execution steps finished successfully', 'done');
+      renderWorkspaceHome();
       break;
 
     case 'error':
@@ -729,7 +889,10 @@ function handleServerEvent(data) {
       agentStatus.textContent = 'Ready';
       hideTaskProgressBanner();
       appendMessage('assistant', `❌ Error: ${data.message}`);
+      addBrowserMilestone('Execution Error', data.message || 'Operation failed', 'pending');
       break;
+  }
+}
   }
 }
 
@@ -893,6 +1056,19 @@ chatForm?.addEventListener('submit', (e) => {
   agentStatus.textContent = 'Working on your goal...';
 
   showTaskProgressBanner(text, 'Starting autonomous loop...', 15, 1);
+
+  showSubView('browser');
+  const titleEl = document.getElementById('active-work-title');
+  if (titleEl) titleEl.textContent = text.length > 40 ? text.slice(0, 40) + '...' : text;
+  const statusPill = document.getElementById('active-work-status-pill');
+  if (statusPill) {
+    statusPill.textContent = 'Working';
+    statusPill.className = 'status-pill-pulse';
+  }
+  const btnTake = document.getElementById('btn-take-control');
+  if (btnTake) btnTake.style.display = 'none';
+  const btnPause = document.getElementById('btn-pause-task');
+  if (btnPause) btnPause.style.display = 'inline-flex';
 
   socket?.send(JSON.stringify({
     type: 'goal',

@@ -98,9 +98,13 @@
         <button class="drawer-close" id="btn-close-drawer">✕</button>
       </div>
       <nav class="drawer-nav">
-        <button class="drawer-item active" data-view="chat">
+        <button class="drawer-item" data-view="chat">
           <span class="drawer-icon">💬</span>
           <span class="drawer-label">Chat & Conversation</span>
+        </button>
+        <button class="drawer-item active" data-view="workspace-home">
+          <span class="drawer-icon">🏠</span>
+          <span class="drawer-label">Workspace Overview</span>
         </button>
         <button class="drawer-item" data-view="browser">
           <span class="drawer-icon">🌐</span>
@@ -207,7 +211,7 @@
             <div class="welcome-header-row">
               <div class="welcome-icon">✨</div>
               <div>
-                <h3>Good morning</h3>
+                <h3 id="welcome-greeting">Good morning</h3>
                 <p class="welcome-subtitle">Your personal companion is ready to take action on your behalf.</p>
               </div>
             </div>
@@ -218,25 +222,37 @@
               <div class="resume-cards-list" id="welcome-resume-list"></div>
             </div>
 
-            <!-- Categorized Starter Actions -->
+            <!-- Categorized Starter Actions (Refined Cards) -->
             <div class="chips-category-group">
-              <div class="section-label">What would you like me to do?</div>
+              <div class="section-label">Suggested Actions</div>
               <div class="chips-grid">
                 <button class="chip" data-prompt="Find the top 3 best flight deals to Tokyo under $600 and compare them">
-                  <span class="chip-icon">✈️</span>
-                  <span class="chip-text"><strong>Research Tokyo flights</strong><small>Compare airline prices</small></span>
+                  <div class="chip-icon-box">✈️</div>
+                  <div class="chip-text">
+                    <strong>Research Flights</strong>
+                    <small>Tokyo deals under $600</small>
+                  </div>
                 </button>
                 <button class="chip" data-prompt="Compare iPad Air and Samsung Galaxy Tab S9 specifications and prices across major retailers">
-                  <span class="chip-icon">🛒</span>
-                  <span class="chip-text"><strong>Compare tablet prices</strong><small>Check specs & best deals</small></span>
+                  <div class="chip-icon-box">🛒</div>
+                  <div class="chip-text">
+                    <strong>Compare Tablets</strong>
+                    <small>iPad Air vs Tab S9 specs</small>
+                  </div>
                 </button>
                 <button class="chip" data-prompt="Browse news.ycombinator.com and prepare an executive summary of the top 3 AI discussions">
-                  <span class="chip-icon">📰</span>
-                  <span class="chip-text"><strong>Summarize AI headlines</strong><small>Extract Hacker News stories</small></span>
+                  <div class="chip-icon-box">📰</div>
+                  <div class="chip-text">
+                    <strong>AI Headlines</strong>
+                    <small>Top Hacker News stories</small>
+                  </div>
                 </button>
                 <button class="chip" data-prompt="Help me review my goals and plan my key priorities for today">
-                  <span class="chip-icon">📋</span>
-                  <span class="chip-text"><strong>Organize today's goals</strong><small>Plan schedule & milestones</small></span>
+                  <div class="chip-icon-box">📋</div>
+                  <div class="chip-text">
+                    <strong>Plan Priorities</strong>
+                    <small>Organize goals & milestones</small>
+                  </div>
                 </button>
               </div>
             </div>
@@ -268,31 +284,151 @@
       <!-- Secondary Work Surface / Inspection Deck (Adaptive Dual-Pane) -->
       <section class="inspection-pane" id="inspection-pane">
         
-        <!-- View: Browser Work Surface (Default in wide dual-pane) -->
-        <div class="sub-view" id="view-browser" style="display: block;">
-          <div class="sub-header header-split">
-            <div>
-              <h3>🌐 Live Browser Work Surface</h3>
-              <p id="browser-deck-status">Isolated Agent Sandbox • Ready</p>
+        <!-- View: Contextual Workspace Home (Default when Idle) -->
+        <div class="sub-view" id="view-workspace-home" style="display: block;">
+          <div class="workspace-content-wrap">
+            
+            <!-- Workspace Hero Header -->
+            <div class="workspace-hero">
+              <div class="workspace-hero-text">
+                <span class="workspace-eyebrow">YOUR WORKSPACE</span>
+                <h2>Everything you and Muse are working on</h2>
+                <p>Autonomous companion ready • Multi-model reasoning & secure sandbox standby</p>
+              </div>
+              <div class="workspace-system-badge">
+                <span class="pulse-dot green"></span>
+                <span>All systems ready</span>
+              </div>
             </div>
-            <div style="display: flex; gap: 6px;">
-              <button class="btn-small-add" id="btn-take-control" title="Intervene in browser session">✋ Take Control</button>
-            </div>
-          </div>
-          <div class="deck-browser-card">
-            <div class="deck-url-bar">
-              <span class="pulse-dot"></span>
-              <span class="deck-url-text" id="deck-browser-url">about:blank</span>
-            </div>
-            <div class="deck-title" id="deck-browser-title">Browser Session Ready</div>
-            <div class="deck-content-preview" id="deck-browser-content">
-              When Muse researches, extracts web information, or automates online tasks, the live session details, DOM text, and extracted tables will appear here in real time.
-            </div>
-          </div>
 
-          <div class="deck-section-title">⚡ Live Execution Milestones</div>
-          <div class="cards-list" id="deck-milestones-list">
-            <div class="empty-state">No active browser steps currently running.</div>
+            <!-- Real-Time Metrics Overview Grid -->
+            <div class="metrics-grid">
+              <div class="metric-card" id="metric-tasks-card">
+                <div class="metric-header">
+                  <span class="metric-title">Active Tasks</span>
+                  <span class="metric-icon">⚡</span>
+                </div>
+                <div class="metric-value" id="metric-tasks-count">0</div>
+                <div class="metric-sub" id="metric-tasks-sub">In-flight or queued</div>
+              </div>
+
+              <div class="metric-card" id="metric-goals-card">
+                <div class="metric-header">
+                  <span class="metric-title">Current Goals</span>
+                  <span class="metric-icon">🎯</span>
+                </div>
+                <div class="metric-value" id="metric-goals-count">0</div>
+                <div class="metric-sub" id="metric-goals-sub">Durable checkpointed</div>
+              </div>
+
+              <div class="metric-card" id="metric-security-card">
+                <div class="metric-header">
+                  <span class="metric-title">Sentinel Security</span>
+                  <span class="metric-icon">🛡️</span>
+                </div>
+                <div class="metric-value status-good" id="metric-security-status">Ready</div>
+                <div class="metric-sub">Isolated sandbox profile</div>
+              </div>
+
+              <div class="metric-card" id="metric-model-card">
+                <div class="metric-header">
+                  <span class="metric-title">AI Router Tier</span>
+                  <span class="metric-icon">🧠</span>
+                </div>
+                <div class="metric-value" id="metric-model-name" style="font-size: 15px;">Gemini Flash</div>
+                <div class="metric-sub">Sub-second reasoning</div>
+              </div>
+            </div>
+
+            <!-- "Continue Your Work" Section -->
+            <div class="workspace-section">
+              <div class="section-header-row">
+                <div class="section-title">Continue your work</div>
+                <span class="section-sub">Quick shortcuts to ongoing workflows</span>
+              </div>
+              <div class="continue-work-grid">
+                <div class="continue-card" id="card-action-research">
+                  <div class="continue-icon-box">🌐</div>
+                  <div class="continue-body">
+                    <h4>Research & Browsing</h4>
+                    <p>Automate web searches, extract product specifications, or track prices online.</p>
+                  </div>
+                  <span class="continue-arrow">→</span>
+                </div>
+
+                <div class="continue-card" id="card-action-goals">
+                  <div class="continue-icon-box">📋</div>
+                  <div class="continue-body">
+                    <h4>Personal Productivity</h4>
+                    <p>Review active goals, checkpoint milestones, and inspect background tasks.</p>
+                  </div>
+                  <span class="continue-arrow">→</span>
+                </div>
+
+                <div class="continue-card" id="card-action-activity">
+                  <div class="continue-icon-box">⚡</div>
+                  <div class="continue-body">
+                    <h4>Recent Activity & Audit</h4>
+                    <p>Inspect timestamped execution steps, tool results, and Sentinel security authorizations.</p>
+                  </div>
+                  <span class="continue-arrow">→</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Active / In-Flight Tasks or Designed Empty State -->
+            <div class="workspace-section">
+              <div class="section-header-row">
+                <div class="section-title">In-Flight Tasks & Background Work</div>
+                <span class="section-sub">Checkpointed tasks that resume across sessions</span>
+              </div>
+              <div class="cards-list" id="workspace-tasks-list">
+                <!-- Dynamically populated or displays premium designed empty state -->
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- View: Active Work Surface (Browser & Task Automation) -->
+        <div class="sub-view" id="view-browser" style="display: none;">
+          <div class="workspace-content-wrap">
+            <div class="sub-header header-split">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <h3 id="active-work-title">🌐 Active Work Surface</h3>
+                  <span class="status-pill-pulse" id="active-work-status-pill">Working</span>
+                </div>
+                <p id="browser-deck-status">Isolated Agent Sandbox • Standby</p>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="btn-workspace-action" id="btn-pause-task" title="Pause Task Execution" style="display: none;">⏸ Pause</button>
+                <button class="btn-workspace-action" id="btn-take-control" title="Intervene in live browser session" style="display: none;">✋ Take Control</button>
+                <button class="btn-workspace-action" id="btn-back-home" title="Return to Workspace Overview">🏠 Workspace Home</button>
+              </div>
+            </div>
+
+            <!-- Live Browser Card (Only shown with clean domain / content) -->
+            <div class="deck-browser-card" id="deck-browser-card">
+              <div class="deck-url-bar" id="deck-url-bar" style="display: none;">
+                <span class="pulse-dot green"></span>
+                <span class="deck-url-text" id="deck-browser-url"></span>
+                <span class="deck-sandbox-badge">Isolated Sandbox</span>
+              </div>
+              <div class="deck-title" id="deck-browser-title">Session Ready</div>
+              <div class="deck-content-preview" id="deck-browser-content">
+                Live DOM extraction, web pages, and extracted tables will appear here in real time.
+              </div>
+            </div>
+
+            <div class="section-header-row" style="margin-top: 14px;">
+              <div class="section-title">⚡ Execution Milestones & Progress</div>
+              <span class="section-sub" id="deck-milestones-count">0 steps executed</span>
+            </div>
+            
+            <div class="timeline-list" id="deck-milestones-list">
+              <div class="empty-state">No execution steps started yet.</div>
+            </div>
           </div>
         </div>
 
