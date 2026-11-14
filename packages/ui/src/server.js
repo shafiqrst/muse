@@ -104,7 +104,8 @@ export class CompanionServer {
 
   async start() {
     this.server = http.createServer((req, res) => {
-      let filePath = path.join(PUBLIC_DIR, req.url === '/' ? 'index.html' : req.url);
+      const reqPath = (req.url || '/').split('?')[0];
+      let filePath = path.join(PUBLIC_DIR, reqPath === '/' ? 'index.html' : reqPath);
       if (!fs.existsSync(filePath)) {
         res.writeHead(404);
         res.end('Not found');

@@ -681,7 +681,33 @@ function hideTaskProgressBanner() {
   }, 2000);
 }
 
-// Append Chat Message Row
+// Configure Markdown Parser with Syntax Highlighting
+if (window.marked) {
+  try {
+    marked.setOptions({
+      gfm: true,
+      breaks: true
+    });
+  } catch (e) {
+    console.warn('Marked options error:', e);
+  }
+}
+
+function formatMarkdown(content) {
+  if (window.marked) {
+    try {
+      return marked.parse(content);
+    } catch (e) {
+      console.warn('Marked parse error:', e);
+    }
+  }
+  return escapeHtml(content)
+    .replace(/\n/g, '<br>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+}
+
+// Append Chat Message Row with Rich Markdown & Copy Buttons
 function appendMessage(role, content) {
   if (welcomeCard) welcomeCard.style.display = 'none';
   if (quickChips) quickChips.style.display = 'none';
@@ -693,12 +719,78 @@ function appendMessage(role, content) {
   icon.className = 'msg-avatar-icon';
   icon.textContent = role === 'assistant' ? '✨' : '👤';
 
+  const bubbleWrapper = document.createElement('div');
+  bubbleWrapper.className = 'msg-bubble-wrapper';
+
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
-  bubble.textContent = content;
+
+  if (role === 'assistant') {
+    bubble.innerHTML = formatMarkdown(content);
+
+    // Enhance code blocks with language header and copy button
+    bubble.querySelectorAll('pre code').forEach((codeBlock) => {
+      const pre = codeBlock.parentElement;
+      const langClass = Array.from(codeBlock.classList).find(c => c.startsWith('language-'));
+      const lang = langClass ? langClass.replace('language-', '') : 'code';
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-block-wrapper';
+
+      const header = document.createElement('div');
+      header.className = 'code-header';
+      header.innerHTML = `
+        <span class="code-lang">${lang}</span>
+        <button class="code-copy-btn" title="Copy code snippet">📋 Copy</button>
+      `;
+
+      const copyBtn = header.querySelector('.code-copy-btn');
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(codeBlock.innerText);
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => copyBtn.textContent = '📋 Copy', 2000);
+      });
+
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(header);
+      wrapper.appendChild(pre);
+
+      if (window.hljs) {
+        try {
+          hljs.highlightElement(codeBlock);
+        } catch {}
+      }
+    });
+
+    // Assistant Message Action Toolbar
+    const toolbar = document.createElement('div');
+    toolbar.className = 'msg-toolbar';
+    toolbar.innerHTML = `
+      <span class="msg-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+      <button class="msg-action-btn btn-copy-msg" title="Copy response">📋</button>
+      <button class="msg-action-btn btn-speak-msg" title="Read aloud">🔊</button>
+    `;
+
+    toolbar.querySelector('.btn-copy-msg').addEventListener('click', (e) => {
+      navigator.clipboard.writeText(content);
+      const btn = e.currentTarget;
+      btn.textContent = '✓';
+      setTimeout(() => btn.textContent = '📋', 1800);
+    });
+
+    toolbar.querySelector('.btn-speak-msg').addEventListener('click', () => {
+      speakText(content);
+    });
+
+    bubbleWrapper.appendChild(bubble);
+    bubbleWrapper.appendChild(toolbar);
+  } else {
+    bubble.textContent = content;
+    bubbleWrapper.appendChild(bubble);
+  }
 
   row.appendChild(icon);
-  row.appendChild(bubble);
+  row.appendChild(bubbleWrapper);
 
   streamList.appendChild(row);
   timeline.scrollTop = timeline.scrollHeight;
