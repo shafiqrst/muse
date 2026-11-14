@@ -1,0 +1,14 @@
+{
+  "name": "@mose/core",
+  "version": "1.0.0",
+  "description": "Core autonomous agent engine with multi-model failover, tool registry, and Sentinel guardrails",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./agent": "./src/agent/base_agent.js",
+    "./router": "./src/providers/router.js",
+    "./security": "./src/security/sentinel.js",
+    "./tools": "./src/tools/registry.js"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@mose/ui",
+  "version": "1.0.0",
+  "description": "Meta Muse desktop companion sidecar and dual-agent studio UI/UX",
+  "type": "module",
+  "main": "src/server.js",
+  "bin": {
+    "mose-ui": "./src/launcher.js"
+  },
+  "dependencies": {
+    "@mose/core": "1.0.0",
+    "@mose/muse": "1.0.0",
+    "ws": "^8.18.0"
+  }
+}

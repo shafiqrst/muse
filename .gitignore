@@ -1,0 +1,23 @@
+# Secrets & Environment (CRITICAL - NEVER COMMIT)
+.env
+.env.*
+*.env
+*.pem
+*.key
+credentials.json
+token.json
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Muse Runtime Data
+.mose/
+.muse/
+*.log
+
+# OS & Temp
+.DS_Store
+Thumbs.db
+dist/
+build/

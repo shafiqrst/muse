@@ -1,0 +1,20 @@
+{
+  "name": "mose-ai-monorepo",
+  "version": "1.0.0",
+  "description": "Meta Muse Style Autonomous Personal AI Agent Monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "node packages/ui/src/launcher.js",
+    "companion": "node packages/ui/src/launcher.js",
+    "test": "node tests/runner.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "playwright-core": "^1.50.0",
+    "ws": "^8.18.0"
+  }
+}

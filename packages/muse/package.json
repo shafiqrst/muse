@@ -1,0 +1,11 @@
+{
+  "name": "@mose/muse",
+  "version": "1.0.0",
+  "description": "Meta Muse autonomous personal agent: browser sandbox, web research, self-tool creation",
+  "type": "module",
+  "main": "src/index.js",
+  "dependencies": {
+    "@mose/core": "1.0.0",
+    "playwright-core": "^1.50.0"
+  }
+}
